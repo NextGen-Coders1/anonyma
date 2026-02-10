@@ -12,6 +12,9 @@ CREATE TABLE users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Add unique constraint on provider + provider_id for upsert
+CREATE UNIQUE INDEX users_provider_provider_id_idx ON users(provider, provider_id);
+
 -- Anonymous Messages Table (P2P)
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

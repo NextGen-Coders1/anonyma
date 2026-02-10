@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO messages (id, recipient_id, content, created_at, is_read)\n        VALUES ($1, $2, $3, NOW(), false)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "89298ba6f3304b36bb413c5bc5fcd5c9550e30d25129c571e62021a5fa9b9f73"
+}

@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            b.id, \n            b.sender_id, \n            u.username as sender_username,\n            b.content, \n            b.is_anonymous, \n            b.created_at\n        FROM broadcasts b\n        LEFT JOIN users u ON b.sender_id = u.id\n        ORDER BY b.created_at DESC\n        LIMIT $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "sender_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "sender_username",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "is_anonymous",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "415d207a6df70967f63793a67c5093f01b59630da82c3b67eb3f7134b9e7f813"
+}

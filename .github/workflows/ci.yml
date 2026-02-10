@@ -28,14 +28,10 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      - name: Cache dependencies
-        uses: actions/cache@v3
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            backend/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
+          workspaces: backend -> target
 
       - name: Check formatting
         run: cargo fmt -- --check
