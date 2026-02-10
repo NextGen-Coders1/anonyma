@@ -9,6 +9,7 @@ pub async fn init_db(database_url: &str) -> Result<PgPool> {
 
 // ===== Models =====
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct User {
     pub id: Uuid,
@@ -18,6 +19,7 @@ pub struct User {
     pub created_at: OffsetDateTime,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Message {
     pub id: Uuid,
@@ -27,6 +29,7 @@ pub struct Message {
     pub is_read: bool,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Broadcast {
     pub id: Uuid,
@@ -95,6 +98,7 @@ pub async fn upsert_user(
     }
 }
 
+#[allow(dead_code)]
 pub async fn get_user_by_id(pool: &PgPool, user_id: Uuid) -> Result<User> {
     let user = sqlx::query_as!(
         User,

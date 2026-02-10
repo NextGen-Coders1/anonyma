@@ -13,6 +13,7 @@ pub async fn logout_handler(AuthSession(_session): AuthSession) -> impl IntoResp
     Redirect::to("/")
 }
 
+#[allow(dead_code)]
 pub async fn me_handler(
     AuthSession(session): AuthSession,
     Extension(pool): Extension<Arc<PgPool>>,
