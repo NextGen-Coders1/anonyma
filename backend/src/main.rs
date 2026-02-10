@@ -1,4 +1,4 @@
-use axum::{routing::get, Extension, Router};
+use axum::{extract::FromRef, routing::get, Router};
 use dotenvy::dotenv;
 use std::{env, sync::Arc};
 use tower_cookies::CookieManagerLayer;
@@ -8,22 +8,72 @@ mod db;
 
 use db::init_db;
 
-// Authkestra imports from facade
+// Authkestra imports
 use authkestra::axum::AuthkestraAxumExt;
-use authkestra::flow::{Authkestra, OAuth2Flow};
+use authkestra::flow::{Authkestra, OAuth2Flow, SessionStoreState};
 use authkestra::providers::github::GithubProvider;
 use authkestra::session::memory::MemoryStore;
+use authkestra::session::{SessionConfig, SessionStore};
+use authkestra::axum::AuthkestraAxumError;
+use sqlx::PgPool;
+
+// Custom app state with generic parameters matching Authkestra's types
+#[derive(Clone)]
+struct AppState<S = authkestra::flow::Missing, T = authkestra::flow::Missing> {
+    authkestra: Authkestra<S, T>,
+    db_pool: Arc<PgPool>,
+}
+
+// Implement FromRef for Authkestra (required)
+impl<S: Clone, T: Clone> FromRef<AppState<S, T>> for Authkestra<S, T> {
+    fn from_ref(state: &AppState<S, T>) -> Self {
+        state.authkestra.clone()
+    }
+}
+
+// Implement FromRef for database pool extraction
+impl<S, T> FromRef<AppState<S, T>> for Arc<PgPool> {
+    fn from_ref(state: &AppState<S, T>) -> Self {
+        state.db_pool.clone()
+    }
+}
+
+// Implement FromRef for SessionStore (required for AuthSession extractor)
+impl<S, T> FromRef<AppState<S, T>> for Result<Arc<dyn SessionStore>, AuthkestraAxumError>
+where
+    S: SessionStoreState,
+{
+    fn from_ref(state: &AppState<S, T>) -> Self {
+        Ok(state.authkestra.session_store.get_store())
+    }
+}
+
+// Implement FromRef for SessionConfig (required for AuthSession)
+impl<S, T> FromRef<AppState<S, T>> for SessionConfig {
+    fn from_ref(state: &AppState<S, T>) -> Self {
+        state.authkestra.session_config.clone()
+    }
+}
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    tracing_subscriber::fmt::init();
 
-    let pool = init_db().await;
+    // Configure structured logging
+    tracing_subscriber::fmt()
+        .with_target(false)
+        .with_level(true)
+        .init();
+
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = init_db(&database_url)
+        .await
+        .expect("Failed to initialize database");
 
     // Setup Authkestra
     let client_id = env::var("GITHUB_CLIENT_ID").expect("GITHUB_CLIENT_ID must be set");
-    let client_secret = env::var("GITHUB_CLIENT_SECRET").expect("GITHUB_CLIENT_SECRET must be set");
+    let client_secret =
+        env::var("GITHUB_CLIENT_SECRET").expect("GITHUB_CLIENT_SECRET must be set");
     let redirect_uri = "http://localhost:3000/auth/github/callback".to_string();
 
     let github_provider = GithubProvider::new(client_id, client_secret, redirect_uri);
@@ -36,32 +86,25 @@ async fn main() {
         .provider(github_flow)
         .build();
 
-    // AuthkestraState wraps the Authkestra instance
-    let authkestra_state = authkestra::axum::AuthkestraState { authkestra };
+    // Create custom app state
+    let state = AppState {
+        authkestra: authkestra.clone(),
+        db_pool: Arc::new(pool),
+    };
 
-    // Build auth router with AuthkestraState
-    let auth_router = authkestra_state
-        .authkestra
-        .axum_router()
-        .with_state(authkestra_state.clone());
-
-    // Build app router with AuthkestraState and PgPool via Extension
-    let app_router = Router::new()
+    // Build app with routes and merge Authkestra router
+    let app = Router::new()
         .route("/logout", get(auth::logout_handler))
         .route("/me", get(auth::me_handler))
-        .layer(Extension(Arc::new(pool)))
-        .with_state(authkestra_state);
-
-    // Merge the two routers
-    let app = auth_router
-        .merge(app_router)
-        .layer(CookieManagerLayer::new());
+        .merge(authkestra.axum_router())
+        .layer(CookieManagerLayer::new())
+        .with_state(state);
 
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let addr = format!("{}:{}", host, port);
 
-    println!("🚀 Listening on {}", addr);
+    tracing::info!("Server starting on {}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
