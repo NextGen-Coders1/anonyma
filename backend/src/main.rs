@@ -9,10 +9,10 @@ mod db;
 use db::init_db;
 
 // Authkestra imports from facade
+use authkestra::axum::AuthkestraAxumExt;
 use authkestra::flow::{Authkestra, OAuth2Flow};
 use authkestra::providers::github::GithubProvider;
 use authkestra::session::memory::MemoryStore;
-use authkestra::axum::AuthkestraAxumExt;
 
 #[tokio::main]
 async fn main() {
@@ -29,7 +29,7 @@ async fn main() {
     let github_provider = GithubProvider::new(client_id, client_secret, redirect_uri);
     let github_flow = OAuth2Flow::new(github_provider);
     let session_store = Arc::new(MemoryStore::default());
-    
+
     // Create Authkestra instance
     let authkestra = Authkestra::builder()
         .session_store(session_store.clone())
@@ -37,12 +37,12 @@ async fn main() {
         .build();
 
     // AuthkestraState wraps the Authkestra instance
-    let authkestra_state = authkestra::axum::AuthkestraState {
-        authkestra,
-    };
+    let authkestra_state = authkestra::axum::AuthkestraState { authkestra };
 
     // Build auth router with AuthkestraState
-    let auth_router = authkestra_state.authkestra.axum_router()
+    let auth_router = authkestra_state
+        .authkestra
+        .axum_router()
         .with_state(authkestra_state.clone());
 
     // Build app router with AuthkestraState and PgPool via Extension
@@ -53,8 +53,9 @@ async fn main() {
         .with_state(authkestra_state);
 
     // Merge the two routers
-    let app = auth_router.merge(app_router)
-        .layer(CookieManagerLayer::new()); 
+    let app = auth_router
+        .merge(app_router)
+        .layer(CookieManagerLayer::new());
 
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
