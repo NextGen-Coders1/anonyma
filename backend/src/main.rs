@@ -1,4 +1,4 @@
-use axum::{extract::FromRef, routing::get, Router};
+use axum::{routing::get, Router};
 use dotenvy::dotenv;
 use std::{env, sync::Arc};
 use tower_cookies::CookieManagerLayer;
@@ -66,7 +66,7 @@ async fn main() {
 
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
-    let addr = format!("{}:{}", host, port);
+    let addr = format!("{host}:{port}");
 
     tracing::info!("Server starting on {}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();

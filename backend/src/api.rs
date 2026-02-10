@@ -1,7 +1,7 @@
 use axum::{
-    extract::{FromRef, FromRequestParts, Path, State},
+    extract::{FromRef, FromRequestParts, State},
     http::StatusCode,
-    response::{IntoResponse, Json},
+    response::Json,
     routing::{get, post},
     Router,
 };
@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use authkestra::axum::{AuthSession, AuthkestraState};
+use authkestra::axum::AuthSession;
 
 pub fn api_router<S>() -> Router<S>
 where

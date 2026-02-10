@@ -36,5 +36,5 @@ pub async fn me_handler(
     }
 
     // Return the username
-    format!("Logged in as: {}", username)
+    format!("Logged in as: {username}")
 }
