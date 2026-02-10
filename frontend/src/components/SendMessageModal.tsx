@@ -1,25 +1,42 @@
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { EyeOff, Send, X } from "lucide-react";
+import { EyeOff, Send, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { messages } from "@/lib/api";
 import { toast } from "sonner";
 
 interface SendMessageModalProps {
   isOpen: boolean;
   onClose: () => void;
+  recipientId: string;
   recipientUsername: string;
 }
 
-const SendMessageModal = ({ isOpen, onClose, recipientUsername }: SendMessageModalProps) => {
+const SendMessageModal = ({ isOpen, onClose, recipientId, recipientUsername }: SendMessageModalProps) => {
   const [message, setMessage] = useState("");
+  const queryClient = useQueryClient();
+
+  const sendMessage = useMutation({
+    mutationFn: (content: string) => messages.send(recipientId, content),
+    onSuccess: () => {
+      toast.success("Message sent anonymously!", {
+        description: `Your secret message was delivered to ${recipientUsername}.`,
+      });
+      setMessage("");
+      onClose();
+      queryClient.invalidateQueries({ queryKey: ['inbox'] });
+    },
+    onError: () => {
+      toast.error("Failed to send message", {
+        description: "Please try again.",
+      });
+    },
+  });
 
   const handleSend = () => {
     if (!message.trim()) return;
-    toast.success("Message sent anonymously!", {
-      description: `Your secret message was delivered to ${recipientUsername}.`,
-    });
-    setMessage("");
-    onClose();
+    sendMessage.mutate(message);
   };
 
   return (
@@ -74,9 +91,13 @@ const SendMessageModal = ({ isOpen, onClose, recipientUsername }: SendMessageMod
               <Button
                 variant="neon"
                 onClick={handleSend}
-                disabled={!message.trim()}
+                disabled={!message.trim() || sendMessage.isPending}
               >
-                <Send className="mr-2 h-4 w-4" />
+                {sendMessage.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
                 Send Secretly
               </Button>
             </div>

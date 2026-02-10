@@ -1,27 +1,13 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Shield, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Shield, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ParticleBackground from "@/components/ParticleBackground";
 import heroBg from "@/assets/hero-bg.jpg";
-import { toast } from "sonner";
+import { auth } from "@/lib/api";
 
 const Index = () => {
-  const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username.trim() || !password.trim()) {
-      toast.error("Please fill in all fields");
-      return;
-    }
-    toast.success(`Welcome, ${username}`, { description: "Entering the shadows..." });
-    navigate("/dashboard/inbox");
+  const handleGitHubLogin = () => {
+    window.location.href = auth.loginUrl();
   };
 
   return (
@@ -55,64 +41,24 @@ const Index = () => {
             Enter the Shadows
           </h1>
           <p className="font-mono text-sm text-muted-foreground">
-            {isLogin ? "Welcome back, agent" : "Create your shadow identity"}
+            Secure anonymous communication platform
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1.5 block font-mono text-xs text-muted-foreground uppercase tracking-wider">
-              Agent Name
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="ShadowWalker"
-              className="w-full rounded-lg border border-border bg-muted/50 px-4 py-3 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:neon-border-purple focus:outline-none transition-all"
-              maxLength={30}
-            />
-          </div>
+        {/* GitHub Login Button */}
+        <Button
+          onClick={handleGitHubLogin}
+          variant="hero"
+          size="xl"
+          className="w-full"
+        >
+          <Github className="mr-2 h-5 w-5" />
+          Continue with GitHub
+        </Button>
 
-          <div>
-            <label className="mb-1.5 block font-mono text-xs text-muted-foreground uppercase tracking-wider">
-              Passphrase
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-border bg-muted/50 px-4 py-3 pr-12 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:neon-border-purple focus:outline-none transition-all"
-                maxLength={50}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-
-          <Button type="submit" variant="hero" size="xl" className="w-full mt-2">
-            {isLogin ? "Enter" : "Create Identity"}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </form>
-
-        {/* Toggle */}
+        {/* Info */}
         <p className="mt-6 text-center font-mono text-xs text-muted-foreground">
-          {isLogin ? "No identity yet?" : "Already an agent?"}{" "}
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-primary hover:text-primary/80 transition-colors underline underline-offset-4"
-          >
-            {isLogin ? "Create one" : "Sign in"}
-          </button>
+          Authenticate via GitHub
         </p>
       </motion.div>
     </div>
