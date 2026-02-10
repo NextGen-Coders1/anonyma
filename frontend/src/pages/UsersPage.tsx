@@ -1,14 +1,24 @@
 import { useState } from "react";
-import { Users } from "lucide-react";
-import { mockAgents } from "@/lib/mock-data";
-import AgentCard from "@/components/AgentCard";
+import { useQuery } from "@tanstack/react-query";
+import { Users, Loader2, Send } from "lucide-react";
+import { users } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import SendMessageModal from "@/components/SendMessageModal";
-import type { Agent } from "@/lib/mock-data";
+import { motion } from "framer-motion";
 
 const UsersPage = () => {
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUsername, setSelectedUsername] = useState<string>("");
 
-  const onlineCount = mockAgents.filter((a) => a.status === "online").length;
+  const { data: usersList = [], isLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: users.list,
+  });
+
+  const handleSendMessage = (userId: string, username: string) => {
+    setSelectedUserId(userId);
+    setSelectedUsername(username);
+  };
 
   return (
     <div>
@@ -18,25 +28,59 @@ const UsersPage = () => {
           <h1 className="font-mono text-2xl font-bold text-foreground">Active Agents</h1>
         </div>
         <p className="text-sm text-muted-foreground font-mono">
-          <span className="text-secondary">{onlineCount}</span> agents currently in the shadows
+          <span className="text-secondary">{usersList.length}</span> agents currently in the shadows
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {mockAgents.map((agent, i) => (
-          <AgentCard
-            key={agent.id}
-            agent={agent}
-            onSendMessage={setSelectedAgent}
-            index={i}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : usersList.length === 0 ? (
+        <div className="glass rounded-xl p-8 text-center">
+          <p className="font-mono text-sm text-muted-foreground">No agents found.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {usersList.map((user, i) => (
+            <motion.div
+              key={user.id}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className="glass rounded-xl p-5 transition-all duration-300 hover:neon-border-purple"
+            >
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 font-mono text-lg font-bold text-primary">
+                  {user.username[0].toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-mono text-sm font-bold text-foreground">{user.username}</h3>
+                  <p className="text-xs text-muted-foreground font-mono">{user.provider}</p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => handleSendMessage(user.id, user.username)}
+              >
+                <Send className="mr-2 h-3.5 w-3.5" />
+                Send Message
+              </Button>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       <SendMessageModal
-        isOpen={!!selectedAgent}
-        onClose={() => setSelectedAgent(null)}
-        recipientUsername={selectedAgent?.username ?? ""}
+        isOpen={!!selectedUserId}
+        onClose={() => {
+          setSelectedUserId(null);
+          setSelectedUsername("");
+        }}
+        recipientId={selectedUserId || ""}
+        recipientUsername={selectedUsername}
       />
     </div>
   );
