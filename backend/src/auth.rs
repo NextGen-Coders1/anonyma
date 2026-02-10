@@ -17,10 +17,24 @@ pub async fn me_handler(
     AuthSession(session): AuthSession,
     Extension(pool): Extension<Arc<PgPool>>,
 ) -> impl IntoResponse {
-    // session.identity is the Identity struct directly
-    let username = session.identity.username.as_deref().unwrap_or("Anonymous");
+    let username = session
+        .identity
+        .username
+        .as_deref()
+        .unwrap_or("Anonymous")
+        .to_string();
 
-    // TODO: Upsert user to database on first login
-    // For now, just return the username
+    // In this context, we know it's GitHub because that's our only provider
+    let provider = "github";
+    let pid = &session.identity.provider_id;
+
+    // Lazy Registration: Upsert user to database
+    let p_id: Option<String> = Some(pid.clone());
+    match crate::db::upsert_user(&pool, &username, provider, p_id).await {
+        Ok(_) => tracing::info!("User {} synced to database", username),
+        Err(e) => tracing::warn!("Failed to sync user to database: {}", e),
+    }
+
+    // Return the username
     format!("Logged in as: {}", username)
 }

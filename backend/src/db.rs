@@ -43,7 +43,7 @@ pub async fn upsert_user(
     pool: &PgPool,
     username: &str,
     provider: &str,
-    provider_id: &str,
+    provider_id: Option<String>,
 ) -> Result<User> {
     // Try to find existing user first
     let existing = sqlx::query_as!(

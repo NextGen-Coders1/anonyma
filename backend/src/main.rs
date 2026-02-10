@@ -10,50 +10,14 @@ use db::init_db;
 
 // Authkestra imports
 use authkestra::axum::AuthkestraAxumExt;
-use authkestra::flow::{Authkestra, OAuth2Flow, SessionStoreState};
+use authkestra::flow::{Authkestra, OAuth2Flow};
 use authkestra::providers::github::GithubProvider;
 use authkestra::session::memory::MemoryStore;
-use authkestra::session::{SessionConfig, SessionStore};
-use authkestra::axum::AuthkestraAxumError;
-use sqlx::PgPool;
 
-// Custom app state with generic parameters matching Authkestra's types
-#[derive(Clone)]
-struct AppState<S = authkestra::flow::Missing, T = authkestra::flow::Missing> {
-    authkestra: Authkestra<S, T>,
-    db_pool: Arc<PgPool>,
-}
+mod api;
+mod state;
 
-// Implement FromRef for Authkestra (required)
-impl<S: Clone, T: Clone> FromRef<AppState<S, T>> for Authkestra<S, T> {
-    fn from_ref(state: &AppState<S, T>) -> Self {
-        state.authkestra.clone()
-    }
-}
-
-// Implement FromRef for database pool extraction
-impl<S, T> FromRef<AppState<S, T>> for Arc<PgPool> {
-    fn from_ref(state: &AppState<S, T>) -> Self {
-        state.db_pool.clone()
-    }
-}
-
-// Implement FromRef for SessionStore (required for AuthSession extractor)
-impl<S, T> FromRef<AppState<S, T>> for Result<Arc<dyn SessionStore>, AuthkestraAxumError>
-where
-    S: SessionStoreState,
-{
-    fn from_ref(state: &AppState<S, T>) -> Self {
-        Ok(state.authkestra.session_store.get_store())
-    }
-}
-
-// Implement FromRef for SessionConfig (required for AuthSession)
-impl<S, T> FromRef<AppState<S, T>> for SessionConfig {
-    fn from_ref(state: &AppState<S, T>) -> Self {
-        state.authkestra.session_config.clone()
-    }
-}
+use state::AppState;
 
 #[tokio::main]
 async fn main() {
@@ -95,7 +59,8 @@ async fn main() {
     // Build app with routes and merge Authkestra router
     let app = Router::new()
         .route("/logout", get(auth::logout_handler))
-        .route("/me", get(auth::me_handler))
+        //.route("/me", get(auth::me_handler)) // Moved to api_router
+        .nest("/api", api::api_router())
         .merge(authkestra.axum_router())
         .layer(CookieManagerLayer::new())
         .with_state(state);

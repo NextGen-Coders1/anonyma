@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Extension, Path, State},
+    extract::{FromRef, FromRequestParts, Path, State},
     http::StatusCode,
     response::{IntoResponse, Json},
     routing::{get, post},
@@ -9,10 +9,16 @@ use serde::{Deserialize, Serialize};
 use sqlx::{types::time::OffsetDateTime, PgPool};
 use tracing::{info, warn};
 use uuid::Uuid;
+use std::sync::Arc;
 
 use authkestra::axum::{AuthSession, AuthkestraState};
 
-pub fn api_router() -> Router {
+pub fn api_router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    Arc<PgPool>: FromRef<S>,
+    AuthSession: FromRequestParts<S>,
+{
     Router::new()
         .route("/me", get(me_handler))
         .route("/users", get(list_users_handler))
@@ -28,6 +34,7 @@ pub fn api_router() -> Router {
 struct UserResponse {
     id: Uuid,
     username: String,
+    provider: String,
     created_at: OffsetDateTime,
 }
 
@@ -64,37 +71,36 @@ struct BroadcastResponse {
 
 async fn me_handler(
     AuthSession(session): AuthSession,
-    Extension(pool): Extension<PgPool>,
+    State(pool): State<Arc<PgPool>>,
 ) -> Result<Json<UserResponse>, StatusCode> {
-    let user_id = session
-        .identity
-        .id
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let provider_id = session.identity.provider_id.clone();
+    let username = session.identity.username.clone().unwrap_or_else(|| "Anonymous".to_string());
+    // hardcoded for now as we only support GitHub
+    let provider = "github";
 
-    let user_uuid = Uuid::parse_str(&user_id).map_err(|e| {
-        warn!("Invalid user ID format: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let user = crate::db::get_user_by_id(&pool, user_uuid)
+    // Upsert user (Lazy Registration + Resolution)
+    // We pass explicit Option<String> to match db.rs signature
+    let p_id: Option<String> = Some(provider_id);
+    let user = crate::db::upsert_user(&pool, &username, provider, p_id)
         .await
         .map_err(|e| {
-            warn!("Failed to fetch user: {}", e);
+            warn!("Failed to sync user: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    info!("User {} fetched their profile", user.username);
+    info!("User {} synced and fetched profile", user.username);
 
     Ok(Json(UserResponse {
         id: user.id,
         username: user.username,
+        provider: user.provider,
         created_at: user.created_at,
     }))
 }
 
 async fn list_users_handler(
     AuthSession(_session): AuthSession,
-    Extension(pool): Extension<PgPool>,
+    State(pool): State<Arc<PgPool>>,
 ) -> Result<Json<Vec<UserResponse>>, StatusCode> {
     let users = crate::db::get_all_users(&pool).await.map_err(|e| {
         warn!("Failed to fetch users: {}", e);
@@ -109,6 +115,7 @@ async fn list_users_handler(
             .map(|u| UserResponse {
                 id: u.id,
                 username: u.username,
+                provider: u.provider,
                 created_at: u.created_at,
             })
             .collect(),
@@ -117,7 +124,7 @@ async fn list_users_handler(
 
 async fn send_message_handler(
     AuthSession(_session): AuthSession,
-    Extension(pool): Extension<PgPool>,
+    State(pool): State<Arc<PgPool>>,
     Json(req): Json<SendMessageRequest>,
 ) -> Result<StatusCode, StatusCode> {
     if req.content.trim().is_empty() {
@@ -139,26 +146,29 @@ async fn send_message_handler(
 
 async fn inbox_handler(
     AuthSession(session): AuthSession,
-    Extension(pool): Extension<PgPool>,
+    State(pool): State<Arc<PgPool>>,
 ) -> Result<Json<Vec<MessageResponse>>, StatusCode> {
-    let user_id = session
-        .identity
-        .id
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+    // Resolve user from session
+    let provider_id = session.identity.provider_id.clone();
+    let username = session.identity.username.clone().unwrap_or_else(|| "Anonymous".to_string());
+    
+    // We must resolve the UUID first
+    let p_id: Option<String> = Some(provider_id);
+    let user = crate::db::upsert_user(&pool, &username, "github", p_id)
+        .await
+        .map_err(|e| {
+            warn!("Failed to resolve user for inbox: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
-    let user_uuid = Uuid::parse_str(&user_id).map_err(|e| {
-        warn!("Invalid user ID format: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let messages = crate::db::get_user_inbox(&pool, user_uuid)
+    let messages = crate::db::get_user_inbox(&pool, user.id)
         .await
         .map_err(|e| {
             warn!("Failed to fetch inbox: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    info!("User {} fetched {} messages", user_uuid, messages.len());
+    info!("User {} fetched {} messages", user.username, messages.len());
 
     Ok(Json(
         messages
@@ -175,7 +185,7 @@ async fn inbox_handler(
 
 async fn create_broadcast_handler(
     AuthSession(session): AuthSession,
-    Extension(pool): Extension<PgPool>,
+    State(pool): State<Arc<PgPool>>,
     Json(req): Json<CreateBroadcastRequest>,
 ) -> Result<StatusCode, StatusCode> {
     if req.content.trim().is_empty() {
@@ -186,14 +196,18 @@ async fn create_broadcast_handler(
     let sender_id = if req.is_anonymous {
         None
     } else {
-        let user_id = session
-            .identity
-            .id
-            .ok_or(StatusCode::UNAUTHORIZED)?;
-        Some(Uuid::parse_str(&user_id).map_err(|e| {
-            warn!("Invalid user ID format: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?)
+        // Resolve user
+        let provider_id = session.identity.provider_id.clone();
+        let username = session.identity.username.clone().unwrap_or_else(|| "Anonymous".to_string());
+        
+        let p_id: Option<String> = Some(provider_id);
+        let user = crate::db::upsert_user(&pool, &username, "github", p_id)
+            .await
+            .map_err(|e| {
+                warn!("Failed to resolve user for broadcast: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        Some(user.id)
     };
 
     crate::db::create_broadcast(&pool, sender_id, &req.content, req.is_anonymous)
@@ -213,7 +227,7 @@ async fn create_broadcast_handler(
 
 async fn list_broadcasts_handler(
     AuthSession(_session): AuthSession,
-    Extension(pool): Extension<PgPool>,
+    State(pool): State<Arc<PgPool>>,
 ) -> Result<Json<Vec<BroadcastResponse>>, StatusCode> {
     let broadcasts = crate::db::get_broadcasts(&pool, 50).await.map_err(|e| {
         warn!("Failed to fetch broadcasts: {}", e);
