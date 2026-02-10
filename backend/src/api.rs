@@ -7,9 +7,9 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{types::time::OffsetDateTime, PgPool};
+use std::sync::Arc;
 use tracing::{info, warn};
 use uuid::Uuid;
-use std::sync::Arc;
 
 use authkestra::axum::{AuthSession, AuthkestraState};
 
@@ -74,7 +74,11 @@ async fn me_handler(
     State(pool): State<Arc<PgPool>>,
 ) -> Result<Json<UserResponse>, StatusCode> {
     let provider_id = session.identity.provider_id.clone();
-    let username = session.identity.username.clone().unwrap_or_else(|| "Anonymous".to_string());
+    let username = session
+        .identity
+        .username
+        .clone()
+        .unwrap_or_else(|| "Anonymous".to_string());
     // hardcoded for now as we only support GitHub
     let provider = "github";
 
@@ -150,8 +154,12 @@ async fn inbox_handler(
 ) -> Result<Json<Vec<MessageResponse>>, StatusCode> {
     // Resolve user from session
     let provider_id = session.identity.provider_id.clone();
-    let username = session.identity.username.clone().unwrap_or_else(|| "Anonymous".to_string());
-    
+    let username = session
+        .identity
+        .username
+        .clone()
+        .unwrap_or_else(|| "Anonymous".to_string());
+
     // We must resolve the UUID first
     let p_id: Option<String> = Some(provider_id);
     let user = crate::db::upsert_user(&pool, &username, "github", p_id)
@@ -198,8 +206,12 @@ async fn create_broadcast_handler(
     } else {
         // Resolve user
         let provider_id = session.identity.provider_id.clone();
-        let username = session.identity.username.clone().unwrap_or_else(|| "Anonymous".to_string());
-        
+        let username = session
+            .identity
+            .username
+            .clone()
+            .unwrap_or_else(|| "Anonymous".to_string());
+
         let p_id: Option<String> = Some(provider_id);
         let user = crate::db::upsert_user(&pool, &username, "github", p_id)
             .await
@@ -217,10 +229,7 @@ async fn create_broadcast_handler(
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    info!(
-        "Broadcast created (anonymous: {})",
-        req.is_anonymous
-    );
+    info!("Broadcast created (anonymous: {})", req.is_anonymous);
 
     Ok(StatusCode::CREATED)
 }

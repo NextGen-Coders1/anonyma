@@ -36,8 +36,7 @@ async fn main() {
 
     // Setup Authkestra
     let client_id = env::var("GITHUB_CLIENT_ID").expect("GITHUB_CLIENT_ID must be set");
-    let client_secret =
-        env::var("GITHUB_CLIENT_SECRET").expect("GITHUB_CLIENT_SECRET must be set");
+    let client_secret = env::var("GITHUB_CLIENT_SECRET").expect("GITHUB_CLIENT_SECRET must be set");
     let redirect_uri = "http://localhost:3000/auth/github/callback".to_string();
 
     let github_provider = GithubProvider::new(client_id, client_secret, redirect_uri);

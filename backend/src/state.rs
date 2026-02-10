@@ -1,9 +1,9 @@
-use axum::extract::FromRef;
-use std::sync::Arc;
-use sqlx::PgPool;
-use authkestra::flow::{Authkestra, SessionStoreState, Missing};
-use authkestra::session::{SessionConfig, SessionStore};
 use authkestra::axum::AuthkestraAxumError;
+use authkestra::flow::{Authkestra, Missing, SessionStoreState};
+use authkestra::session::{SessionConfig, SessionStore};
+use axum::extract::FromRef;
+use sqlx::PgPool;
+use std::sync::Arc;
 
 // Custom app state with generic parameters matching Authkestra's types
 #[derive(Clone)]
