@@ -5,7 +5,6 @@ Anonyma is a secure, peer-to-peer anonymous messaging platform designed for priv
 ## Documentation
 
 - [System Architecture](docs/ARCHITECTURE.md) - Detailed technical specifications, database schema, and technology stack.
-- [Backend Configuration](backend/.env.example) - Environment variable reference.
 
 ## Development Setup
 

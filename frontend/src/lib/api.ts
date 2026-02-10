@@ -44,7 +44,7 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 // Auth API
 export const auth = {
   getMe: () => apiRequest<User>('/api/me'),
-  loginUrl: () => `${API_URL}/auth/github/login`,
+  loginUrl: () => `${API_URL}/auth/github`,
   logoutUrl: () => `${API_URL}/logout`,
 };
 
