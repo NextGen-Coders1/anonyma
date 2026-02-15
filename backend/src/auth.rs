@@ -1,24 +1,112 @@
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    Argon2,
+};
 use authkestra::axum::AuthSession;
 use axum::{
-    extract::Extension,
+    extract::{Json, State},
+    http::StatusCode,
     response::{IntoResponse, Redirect},
 };
+use serde::Deserialize;
 use sqlx::PgPool;
 use std::sync::Arc;
+// use uuid::Uuid;
 
-#[tracing::instrument(skip(_session))]
-pub async fn logout_handler(AuthSession(_session): AuthSession) -> impl IntoResponse {
-    // Session doesn't have a logout method in this version
-    // Logout is typically handled by clearing the cookie or redirecting to a logout endpoint
-    // For now, just redirect
-    Redirect::to("/")
+#[derive(Deserialize, Debug)]
+pub struct LoginRequest {
+    username: String,
+    password: String,
+}
+
+#[tracing::instrument(skip(session, pool))]
+pub async fn login_handler(
+    mut session: AuthSession,
+    State(pool): State<Arc<PgPool>>,
+    Json(req): Json<LoginRequest>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let user = crate::db::get_user_by_username(&pool, &req.username)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    let password_hash = user.password_hash.ok_or(StatusCode::UNAUTHORIZED)?;
+
+    let parsed_hash =
+        PasswordHash::new(&password_hash).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Argon2::default()
+        .verify_password(req.password.as_bytes(), &parsed_hash)
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+    // Login successful
+    // Mutate session identity fields directly as we can't import Identity type
+    session.0.identity.username = Some(user.username);
+    session.0.identity.provider_id = user.id.to_string();
+    // Assuming email is optional and can be left as is or updated if needed
+    // session.0.identity.email = None;
+
+    Ok(StatusCode::OK)
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RegisterRequest {
+    username: String,
+    password: String,
+}
+
+#[tracing::instrument(skip(session, pool))]
+pub async fn register_handler(
+    mut session: AuthSession,
+    State(pool): State<Arc<PgPool>>,
+    Json(req): Json<RegisterRequest>,
+) -> Result<impl IntoResponse, StatusCode> {
+    if req.username.trim().is_empty() || req.password.len() < 6 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Check if user exists
+    if crate::db::get_user_by_username(&pool, &req.username)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .is_some()
+    {
+        return Err(StatusCode::CONFLICT);
+    }
+
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let password_hash = argon2
+        .hash_password(req.password.as_bytes(), &salt)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .to_string();
+
+    let user = crate::db::create_local_user(&pool, &req.username, &password_hash)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Auto login
+    session.0.identity.username = Some(user.username);
+    session.0.identity.provider_id = user.id.to_string();
+
+    Ok(StatusCode::CREATED)
+}
+
+#[tracing::instrument(skip(_session, cookies))]
+pub async fn logout_handler(
+    _session: AuthSession,
+    cookies: tower_cookies::Cookies,
+) -> impl IntoResponse {
+    cookies.remove(tower_cookies::Cookie::new("authkestra-session", ""));
+    // Redirect to frontend login page
+    Redirect::to("http://localhost:8080/login")
 }
 
 #[allow(dead_code)]
-#[tracing::instrument(skip(session, pool))]
+#[tracing::instrument(skip(session, _pool))]
 pub async fn me_handler(
     AuthSession(session): AuthSession,
-    Extension(pool): Extension<Arc<PgPool>>,
+    State(_pool): State<Arc<PgPool>>,
 ) -> impl IntoResponse {
     let username = session
         .identity
@@ -27,17 +115,7 @@ pub async fn me_handler(
         .unwrap_or("Anonymous")
         .to_string();
 
-    // In this context, we know it's GitHub because that's our only provider
-    let provider = "github";
-    let pid = &session.identity.provider_id;
+    let _pid = &session.identity.provider_id;
 
-    // Lazy Registration: Upsert user to database
-    let p_id: Option<String> = Some(pid.clone());
-    match crate::db::upsert_user(&pool, &username, provider, p_id).await {
-        Ok(_) => tracing::info!("User {} synced to database", username),
-        Err(e) => tracing::warn!("Failed to sync user to database: {}", e),
-    }
-
-    // Return the username
     format!("Logged in as: {username}")
 }

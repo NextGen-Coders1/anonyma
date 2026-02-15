@@ -1,5 +1,6 @@
 import { Settings, User, Bell, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const SettingsPage = () => {
   return (
@@ -28,7 +29,7 @@ const SettingsPage = () => {
                 <p className="font-mono text-xs text-muted-foreground">{item.desc}</p>
               </div>
             </div>
-            <Button variant="glass" size="sm">Edit</Button>
+            <Button variant="glass" size="sm" onClick={() => toast.info(`Editing ${item.title}`, { description: "This feature is coming soon." })}>Edit</Button>
           </div>
         ))}
       </div>

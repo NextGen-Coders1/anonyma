@@ -1,5 +1,8 @@
-import { Inbox, Users, Radio, Settings, Shield } from "lucide-react";
+import { Inbox, Users, Radio, Settings, Shield, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { useAuth } from "@/providers/AuthProvider";
+import { auth } from "@/lib/api";
+import { useEffect, useState } from "react";
 
 const navItems = [
   { title: "Inbox", url: "/dashboard/inbox", icon: Inbox },
@@ -9,6 +12,25 @@ const navItems = [
 ];
 
 const DashboardSidebar = () => {
+  const { user } = useAuth();
+  const [displayUsername, setDisplayUsername] = useState<string>("Agent");
+
+  useEffect(() => {
+    if (user?.username) {
+        setDisplayUsername(user.username);
+    } else {
+        if (user?.username) setDisplayUsername(user.username);
+    }
+  }, [user]);
+
+  const handleLogout = async () => {
+    try {
+        window.location.href = auth.logoutUrl();
+    } catch (e) {
+        console.error("Logout failed", e);
+    }
+  };
+
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-border bg-card/50 backdrop-blur-md">
       {/* Logo */}
@@ -35,14 +57,21 @@ const DashboardSidebar = () => {
 
       {/* Profile */}
       <div className="border-t border-border p-4">
-        <div className="glass flex items-center gap-3 rounded-lg p-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 font-mono text-xs font-bold text-primary">
-            AG
+        <div 
+            className="glass flex items-center gap-3 rounded-lg p-3 cursor-pointer hover:bg-muted/50 transition-colors group"
+            onClick={handleLogout}
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 font-mono text-xs font-bold text-primary group-hover:bg-red-500/20 group-hover:text-red-500 transition-colors">
+            {displayUsername.substring(0, 2).toUpperCase()}
           </div>
-          <div>
-            <p className="font-mono text-xs font-semibold text-foreground">Agent_001</p>
-            <p className="font-mono text-[10px] text-secondary">● Online</p>
+          <div className="flex-1 min-w-0">
+            <p className="font-mono text-xs font-semibold text-foreground truncate">{displayUsername}</p>
+            <p className="font-mono text-[10px] text-secondary group-hover:text-red-400 transition-colors">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1 group-hover:bg-red-500"></span>
+                Click to logout
+            </p>
           </div>
+          <LogOut className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity text-red-400" />
         </div>
       </div>
     </aside>

@@ -210,21 +210,20 @@ async fn create_broadcast_handler(
         None
     } else {
         // Resolve user
-        let provider_id = session.identity.provider_id.clone();
-        let username = session
-            .identity
-            .username
-            .clone()
-            .unwrap_or_else(|| "Anonymous".to_string());
+        let username = session.identity.username.clone();
 
-        let p_id: Option<String> = Some(provider_id);
-        let user = crate::db::upsert_user(&pool, &username, "github", p_id)
-            .await
-            .map_err(|e| {
-                warn!("Failed to resolve user for broadcast: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-        Some(user.id)
+        if let Some(username) = username {
+            let user = crate::db::get_user_by_username(&pool, &username)
+                .await
+                .map_err(|e| {
+                    warn!("Failed to resolve user for broadcast: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?
+                .ok_or(StatusCode::UNAUTHORIZED)?;
+            Some(user.id)
+        } else {
+            return Err(StatusCode::UNAUTHORIZED);
+        }
     };
 
     crate::db::create_broadcast(&pool, sender_id, &req.content, req.is_anonymous)

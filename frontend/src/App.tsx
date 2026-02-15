@@ -11,6 +11,7 @@ import InboxPage from "./pages/InboxPage";
 import UsersPage from "./pages/UsersPage";
 import BroadcastPage from "./pages/BroadcastPage";
 import SettingsPage from "./pages/SettingsPage";
+import LoginPage from "./pages/LoginPage";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<Navigate to="/dashboard/inbox" replace />} />
               <Route path="inbox" element={<InboxPage />} />

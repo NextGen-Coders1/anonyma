@@ -61,14 +61,37 @@ async fn main() {
         db_pool: Arc::new(pool),
     };
 
+    // CORS configuration
+    let cors = tower_http::cors::CorsLayer::new()
+        .allow_origin(vec![
+            "http://localhost:8080".parse::<axum::http::HeaderValue>().unwrap(),
+        ])
+        .allow_methods(vec![
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PUT,
+            axum::http::Method::DELETE,
+            axum::http::Method::OPTIONS,
+        ])
+        .allow_headers(vec![
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::AUTHORIZATION,
+            axum::http::header::ACCEPT,
+            axum::http::header::COOKIE,
+        ])
+        .allow_credentials(true);
+
     // Build app with routes and merge Authkestra router
     let app = Router::new()
         .route("/", get(root_redirect_handler))
+        .route("/auth/login", axum::routing::post(auth::login_handler))
+        .route("/auth/register", axum::routing::post(auth::register_handler))
         .route("/logout", get(auth::logout_handler))
         //.route("/me", get(auth::me_handler)) // Moved to api_router
         .nest("/api", api::api_router())
         .merge(authkestra.axum_router())
         .layer(CookieManagerLayer::new())
+        .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 

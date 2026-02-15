@@ -38,14 +38,30 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
     throw new Error(`API Error: ${response.status} ${response.statusText}`);
   }
 
-  return response.json();
+  // Handle empty responses (like 201 Created)
+  const contentLength = response.headers.get("Content-Length");
+  if (contentLength === "0" || response.status === 204) {
+    return {} as T;
+  }
+
+  // Sometimes 201 has no content but no Content-Length header, check text
+  const text = await response.text();
+  return text ? JSON.parse(text) : ({} as T);
 }
 
 // Auth API
 export const auth = {
   getMe: () => apiRequest<User>('/api/me'),
+  login: (username, password) => apiRequest<void>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  }),
+  register: (username, password) => apiRequest<void>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  }),
   loginUrl: () => `${API_URL}/auth/github`,
-  logoutUrl: () => `${API_URL}/logout`,
+  logoutUrl: () => `/`,
 };
 
 // Users API

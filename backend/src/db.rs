@@ -14,6 +14,7 @@ pub async fn init_db(database_url: &str) -> Result<PgPool> {
 pub struct User {
     pub id: Uuid,
     pub username: String,
+    pub password_hash: Option<String>,
     pub provider: String,
     pub provider_id: Option<String>,
     pub created_at: OffsetDateTime,
@@ -53,7 +54,7 @@ pub async fn upsert_user(
     let existing = sqlx::query_as!(
         User,
         r#"
-        SELECT id, username, provider, provider_id, created_at
+        SELECT id, username, password_hash, provider, provider_id, created_at
         FROM users
         WHERE provider = $1 AND provider_id = $2
         "#,
@@ -71,7 +72,7 @@ pub async fn upsert_user(
             UPDATE users
             SET username = $1
             WHERE id = $2
-            RETURNING id, username, provider, provider_id, created_at
+            RETURNING id, username, password_hash, provider, provider_id, created_at
             "#,
             username,
             user.id
@@ -86,7 +87,7 @@ pub async fn upsert_user(
             r#"
             INSERT INTO users (id, username, provider, provider_id, created_at)
             VALUES ($1, $2, $3, $4, NOW())
-            RETURNING id, username, provider, provider_id, created_at
+            RETURNING id, username, password_hash, provider, provider_id, created_at
             "#,
             Uuid::new_v4(),
             username,
@@ -99,12 +100,49 @@ pub async fn upsert_user(
     }
 }
 
+pub async fn create_local_user(
+    pool: &PgPool,
+    username: &str,
+    password_hash: &str,
+) -> Result<User> {
+    let user = sqlx::query_as!(
+        User,
+        r#"
+        INSERT INTO users (id, username, password_hash, provider, created_at)
+        VALUES ($1, $2, $3, 'local', NOW())
+        RETURNING id, username, password_hash, provider, provider_id, created_at
+        "#,
+        Uuid::new_v4(),
+        username,
+        password_hash
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(user)
+}
+
+pub async fn get_user_by_username(pool: &PgPool, username: &str) -> Result<Option<User>> {
+    let user = sqlx::query_as!(
+        User,
+        r#"
+        SELECT id, username, password_hash, provider, provider_id, created_at
+        FROM users
+        WHERE username = $1
+        "#,
+        username
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(user)
+}
+
 #[allow(dead_code)]
 pub async fn get_user_by_id(pool: &PgPool, user_id: Uuid) -> Result<User> {
     let user = sqlx::query_as!(
         User,
         r#"
-        SELECT id, username, provider, provider_id, created_at
+        SELECT id, username, password_hash, provider, provider_id, created_at
         FROM users
         WHERE id = $1
         "#,
@@ -120,7 +158,7 @@ pub async fn get_all_users(pool: &PgPool) -> Result<Vec<User>> {
     let users = sqlx::query_as!(
         User,
         r#"
-        SELECT id, username, provider, provider_id, created_at
+        SELECT id, username, password_hash, provider, provider_id, created_at
         FROM users
         ORDER BY created_at DESC
         "#
