@@ -6,6 +6,7 @@ use axum::{
 use sqlx::PgPool;
 use std::sync::Arc;
 
+#[tracing::instrument(skip(_session))]
 pub async fn logout_handler(AuthSession(_session): AuthSession) -> impl IntoResponse {
     // Session doesn't have a logout method in this version
     // Logout is typically handled by clearing the cookie or redirecting to a logout endpoint
@@ -14,6 +15,7 @@ pub async fn logout_handler(AuthSession(_session): AuthSession) -> impl IntoResp
 }
 
 #[allow(dead_code)]
+#[tracing::instrument(skip(session, pool))]
 pub async fn me_handler(
     AuthSession(session): AuthSession,
     Extension(pool): Extension<Arc<PgPool>>,

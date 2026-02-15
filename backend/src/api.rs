@@ -38,7 +38,7 @@ struct UserResponse {
     created_at: OffsetDateTime,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct SendMessageRequest {
     recipient_id: Uuid,
     content: String,
@@ -52,7 +52,7 @@ struct MessageResponse {
     is_read: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct CreateBroadcastRequest {
     content: String,
     is_anonymous: bool,
@@ -69,6 +69,7 @@ struct BroadcastResponse {
 
 // ===== Handlers =====
 
+#[tracing::instrument(skip(session, pool))]
 async fn me_handler(
     AuthSession(session): AuthSession,
     State(pool): State<Arc<PgPool>>,
@@ -102,6 +103,7 @@ async fn me_handler(
     }))
 }
 
+#[tracing::instrument(skip(_session, pool))]
 async fn list_users_handler(
     AuthSession(_session): AuthSession,
     State(pool): State<Arc<PgPool>>,
@@ -126,6 +128,7 @@ async fn list_users_handler(
     ))
 }
 
+#[tracing::instrument(skip(_session, pool))]
 async fn send_message_handler(
     AuthSession(_session): AuthSession,
     State(pool): State<Arc<PgPool>>,
@@ -148,6 +151,7 @@ async fn send_message_handler(
     Ok(StatusCode::CREATED)
 }
 
+#[tracing::instrument(skip(session, pool))]
 async fn inbox_handler(
     AuthSession(session): AuthSession,
     State(pool): State<Arc<PgPool>>,
@@ -191,6 +195,7 @@ async fn inbox_handler(
     ))
 }
 
+#[tracing::instrument(skip(session, pool))]
 async fn create_broadcast_handler(
     AuthSession(session): AuthSession,
     State(pool): State<Arc<PgPool>>,
@@ -234,6 +239,7 @@ async fn create_broadcast_handler(
     Ok(StatusCode::CREATED)
 }
 
+#[tracing::instrument(skip(_session, pool))]
 async fn list_broadcasts_handler(
     AuthSession(_session): AuthSession,
     State(pool): State<Arc<PgPool>>,

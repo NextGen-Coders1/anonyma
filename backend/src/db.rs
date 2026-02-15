@@ -42,6 +42,7 @@ pub struct Broadcast {
 
 // ===== User Operations =====
 
+#[tracing::instrument(skip(pool))]
 pub async fn upsert_user(
     pool: &PgPool,
     username: &str,
@@ -132,6 +133,7 @@ pub async fn get_all_users(pool: &PgPool) -> Result<Vec<User>> {
 
 // ===== Message Operations =====
 
+#[tracing::instrument(skip(pool))]
 pub async fn create_message(pool: &PgPool, recipient_id: Uuid, content: &str) -> Result<Uuid> {
     let message_id = Uuid::new_v4();
 
@@ -150,6 +152,7 @@ pub async fn create_message(pool: &PgPool, recipient_id: Uuid, content: &str) ->
     Ok(message_id)
 }
 
+#[tracing::instrument(skip(pool))]
 pub async fn get_user_inbox(pool: &PgPool, recipient_id: Uuid) -> Result<Vec<Message>> {
     let messages = sqlx::query_as!(
         Message,
@@ -169,6 +172,7 @@ pub async fn get_user_inbox(pool: &PgPool, recipient_id: Uuid) -> Result<Vec<Mes
 
 // ===== Broadcast Operations =====
 
+#[tracing::instrument(skip(pool))]
 pub async fn create_broadcast(
     pool: &PgPool,
     sender_id: Option<Uuid>,
@@ -193,6 +197,7 @@ pub async fn create_broadcast(
     Ok(broadcast_id)
 }
 
+#[tracing::instrument(skip(pool))]
 pub async fn get_broadcasts(pool: &PgPool, limit: i64) -> Result<Vec<Broadcast>> {
     let broadcasts = sqlx::query_as!(
         Broadcast,
