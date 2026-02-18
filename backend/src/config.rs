@@ -17,7 +17,7 @@ impl Config {
     let client_secret = env::var("GITHUB_CLIENT_SECRET").expect("GITHUB_CLIENT_SECRET must be set");
     let host = env::var("HOST").expect("HOST must be set");
     let port = env::var("PORT").expect("PORT must be set");
-    let redirect_uri = format!("http://{}:{}/auth/github/callback", host, port);
+    let redirect_uri = format!("http://{host}:{port}/auth/github/callback");
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     Self { client_id, client_secret, redirect_uri, database_url, host, port }

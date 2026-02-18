@@ -20,6 +20,7 @@ use authkestra::axum::AuthkestraAxumExt;
 use authkestra::flow::{Authkestra, OAuth2Flow};
 use authkestra::providers::github::GithubProvider;
 use authkestra::session::memory::MemoryStore;
+use authkestra::session::SessionConfig;
 
 mod api;
 mod state;
@@ -53,6 +54,10 @@ async fn main() {
     let authkestra = Authkestra::builder()
         .session_store(session_store.clone())
         .provider(github_flow)
+        .session_config(SessionConfig {
+            secure: false, // Must be false for HTTP localhost
+            ..SessionConfig::default()
+        })
         .build();
 
     // Create custom app state
@@ -87,7 +92,6 @@ async fn main() {
         .route("/auth/login", axum::routing::post(auth::login_handler))
         .route("/auth/register", axum::routing::post(auth::register_handler))
         .route("/logout", get(auth::logout_handler))
-        //.route("/me", get(auth::me_handler)) // Moved to api_router
         .nest("/api", api::api_router())
         .merge(authkestra.axum_router())
         .layer(CookieManagerLayer::new())

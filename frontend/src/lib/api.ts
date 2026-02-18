@@ -52,16 +52,16 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 // Auth API
 export const auth = {
   getMe: () => apiRequest<User>('/api/me'),
-  login: (username, password) => apiRequest<void>('/auth/login', {
+  login: (username: string, password: string) => apiRequest<void>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username, password }),
   }),
-  register: (username, password) => apiRequest<void>('/auth/register', {
+  register: (username: string, password: string) => apiRequest<void>('/auth/register', {
     method: 'POST',
     body: JSON.stringify({ username, password }),
   }),
-  loginUrl: () => `${API_URL}/auth/github`,
-  logoutUrl: () => `/`,
+  loginUrl: () => `${API_URL}/auth/github?success_url=${encodeURIComponent('http://localhost:8080/dashboard')}`,
+  logoutUrl: () => `${API_URL}/logout`,
 };
 
 // Users API

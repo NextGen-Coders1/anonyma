@@ -31,8 +31,14 @@ const LoginPage = () => {
         toast.success("Identity established.", { description: "You are now logged in." });
       }
       window.location.href = "/dashboard";
-    } catch (error) {
-      toast.error(isLogin ? "Login failed" : "Registration failed", { description: "Check your credentials or try again." });
+    } catch (error: any) {
+      console.error("Auth error:", error);
+      const message = error.message || (isLogin ? "Login failed" : "Registration failed");
+      toast.error(isLogin ? "Login failed" : "Registration failed", { 
+        description: message.includes("409") ? "Codename already taken." : 
+                     message.includes("400") ? "Invalid input. Password must be 6+ chars." :
+                     "Check your credentials or try again." 
+      });
     } finally {
       setIsLoading(false);
     }
