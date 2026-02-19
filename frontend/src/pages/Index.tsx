@@ -6,7 +6,7 @@ import heroBg from "@/assets/hero-bg.jpg";
 import { auth } from "@/lib/api";
 
 const Index = () => {
-  const handleGitHubLogin = () => {
+  const handleLogin = () => {
     window.location.href = auth.loginUrl();
   };
 
@@ -46,15 +46,24 @@ const Index = () => {
         </div>
 
         {/* GitHub Login Button */}
-        <Button
-          onClick={handleGitHubLogin}
-          variant="hero"
-          size="xl"
-          className="w-full"
-        >
-          <Github className="mr-2 h-5 w-5" />
-          Continue with GitHub
-        </Button>
+        <div className="flex flex-col gap-4 w-full max-w-sm z-10">
+          <Button
+            size="lg"
+            className="w-full font-mono font-bold shadow-[0_0_20px_rgba(124,58,237,0.3)] hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] transition-all duration-300"
+            onClick={handleLogin}
+          >
+            <Github className="mr-2 h-5 w-5" />
+            Authenticate via GitHub
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full font-mono font-bold border-muted bg-background/50 hover:bg-muted/80"
+            onClick={() => window.location.href = '/login'}
+          >
+            Authenticate with Password
+          </Button>
+        </div>
 
         {/* Info */}
         <p className="mt-6 text-center font-mono text-xs text-muted-foreground">
