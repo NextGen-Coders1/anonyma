@@ -1,55 +1,57 @@
 # Anonyma
 
-Anonyma is a secure, peer-to-peer anonymous messaging platform designed for privacy and reliability, built with Rust and Next.js.
+Anonyma is a secure, privacy-first anonymous messaging and broadcast platform. It allows agents to communicate without revealing their identities while providing modern social features like message reactions and view tracking.
+
+## Features
+
+- **Anonymous P2P Messaging**: Send encrypted-at-rest messages to other agents without revealing your identity.
+- **Global Broadcast Board**: Post messages to the entire network anonymously or as your agent persona.
+- **Agent Profiles**: Customize your shadow identity with a codename and bio.
+- **Message Reactions**: React to incoming anonymous messages with emojis.
+- **Read Receipts (Broadcasts)**: Real-time view tracking for broadcasts using Intersection Observer API.
+- **Secure Authentication**: Multi-provider login support (GitHub OAuth and Local Credentials).
+
+## Tech Stack
+
+- **Backend**: Rust with Axum and SQLx.
+- **Frontend**: React (Vite), TypeScript, Tailwind CSS, and shadcn/ui.
+- **Database**: PostgreSQL managed with SQLx migrations.
+- **State Management**: TanStack Query (React Query).
 
 ## Documentation
 
-- [System Architecture](docs/ARCHITECTURE.md) - Detailed technical specifications, database schema, and technology stack.
+- [Architecture and Design](./docs/ARCHITECTURE.md)
+- [Backend Development](./backend/README.md)
+- [Frontend Development](./frontend/README.md)
 
-## Development Setup
+## Quick Start
 
-The project requires Docker, Rust (latest stable), and Node.js (v18+).
-
-### Database
-
-Initialize the PostgreSQL database container:
-
+### 1. Database
+Spin up the PostgreSQL instance:
 ```bash
 docker-compose up -d
 ```
 
-### Backend
-
-Configure and start the API server:
-
+### 2. Backend
 ```bash
 cd backend
 cp .env.example .env
-# Edit .env with valid GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
+# Configure GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env
 cargo run
 ```
 
-The server listens on `http://127.0.0.1:3000`.
-
-### Frontend
-
-Install dependencies and start the web interface:
-
+### 3. Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-The application is accessible at `http://localhost:8080`.
+The application will be accessible at http://localhost:8080.
 
-## Testing & Maintenance
+## Security Policy
 
-Refers to standard tooling for validation:
-
-- **Backend**: Run `cargo test` for unit and integration tests.
-- **Frontend**: Run `npm run lint` for static analysis.
-- **Database**: Manage schema changes with `sqlx migrate run`.
+Anonyma is built with a focus on anonymity. Sender IDs for P2P messages are never stored in the database, ensuring that even with full database access, an agent's identity remains protected.
 
 ## License
 

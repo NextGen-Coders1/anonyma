@@ -8,6 +8,8 @@ CREATE TABLE users (
     password_hash TEXT, -- Nullable if using only OAuth
     provider TEXT NOT NULL DEFAULT 'local', -- 'local', 'github', etc.
     provider_id TEXT, -- User ID from provider
+    bio TEXT,
+    avatar_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -25,6 +27,16 @@ CREATE TABLE messages (
     is_read BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+-- Message Reactions
+CREATE TABLE message_reactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    emoji TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(message_id, user_id) -- Only one reaction per user per message
+);
+
 -- Broadcasts Table (Public)
 CREATE TABLE broadcasts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -32,4 +44,13 @@ CREATE TABLE broadcasts (
     content TEXT NOT NULL,
     is_anonymous BOOLEAN NOT NULL DEFAULT FALSE, -- Toggle for anonymous broadcasts
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Broadcast Views (Read Receipts)
+CREATE TABLE broadcast_views (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    broadcast_id UUID NOT NULL REFERENCES broadcasts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    viewed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(broadcast_id, user_id) -- Only one view tracked per user
 );

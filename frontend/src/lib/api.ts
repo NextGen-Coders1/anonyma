@@ -3,6 +3,8 @@ export interface User {
   id: string;
   username: string;
   provider: string;
+  bio?: string;
+  avatar_url?: string;
   created_at: string;
 }
 
@@ -11,6 +13,7 @@ export interface Message {
   content: string;
   created_at: string;
   is_read: boolean;
+  reactions?: Record<string, number>;
 }
 
 export interface Broadcast {
@@ -19,6 +22,7 @@ export interface Broadcast {
   content: string;
   is_anonymous: boolean;
   created_at: string;
+  view_count: number;
 }
 
 // API Client
@@ -52,6 +56,15 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 // Auth API
 export const auth = {
   getMe: () => apiRequest<User>('/api/me'),
+  updateProfile: (data: { username?: string; bio?: string; avatar_url?: string }) =>
+    apiRequest<User>('/api/me', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  deleteAccount: () =>
+    apiRequest<void>('/api/me', {
+      method: 'DELETE',
+    }),
   login: (username: string, password: string) => apiRequest<void>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username, password }),
@@ -77,6 +90,11 @@ export const messages = {
       method: 'POST',
       body: JSON.stringify({ recipient_id: recipientId, content }),
     }),
+  react: (messageId: string, emoji: string) =>
+    apiRequest<void>(`/api/messages/${messageId}/react`, {
+      method: 'POST',
+      body: JSON.stringify({ emoji }),
+    }),
 };
 
 // Broadcasts API
@@ -86,5 +104,9 @@ export const broadcasts = {
     apiRequest<void>('/api/broadcasts', {
       method: 'POST',
       body: JSON.stringify({ content, is_anonymous: isAnonymous }),
+    }),
+  trackView: (broadcastId: string) =>
+    apiRequest<void>(`/api/broadcasts/${broadcastId}/view`, {
+      method: 'POST',
     }),
 };

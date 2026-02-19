@@ -21,12 +21,16 @@ where
 {
     Router::new()
         .route("/me", get(me_handler))
+        .route("/me", post(update_profile_handler))
+        .route("/me", axum::routing::delete(delete_account_handler))
         .route("/users", get(list_users_handler))
         .route("/debug/users", get(debug_list_users_handler))
         .route("/messages", post(send_message_handler))
         .route("/messages/inbox", get(inbox_handler))
+        .route("/messages/:id/react", post(react_message_handler))
         .route("/broadcasts", post(create_broadcast_handler))
         .route("/broadcasts", get(list_broadcasts_handler))
+        .route("/broadcasts/:id/view", post(view_broadcast_handler))
 }
 
 // ===== Request/Response Types =====
@@ -47,8 +51,17 @@ struct UserResponse {
     id: Uuid,
     username: String,
     provider: String,
+    bio: Option<String>,
+    avatar_url: Option<String>,
     #[serde(with = "time::serde::rfc3339")]
     created_at: OffsetDateTime,
+}
+
+#[derive(Deserialize, Debug)]
+struct UpdateProfileRequest {
+    username: Option<String>,
+    bio: Option<String>,
+    avatar_url: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -64,6 +77,12 @@ struct MessageResponse {
     #[serde(with = "time::serde::rfc3339")]
     created_at: OffsetDateTime,
     is_read: bool,
+    reactions: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize, Debug)]
+struct ReactMessageRequest {
+    emoji: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -80,6 +99,7 @@ struct BroadcastResponse {
     is_anonymous: bool,
     #[serde(with = "time::serde::rfc3339")]
     created_at: OffsetDateTime,
+    view_count: i64,
 }
 
 #[tracing::instrument(skip(session, pool))]
@@ -138,8 +158,61 @@ async fn me_handler(
         id: user.id,
         username: user.username,
         provider: user.provider,
+        bio: user.bio,
+        avatar_url: user.avatar_url,
         created_at: user.created_at,
     }))
+}
+
+#[tracing::instrument(skip(session, pool))]
+async fn update_profile_handler(
+    mut session: AuthSession,
+    State(pool): State<Arc<PgPool>>,
+    Json(req): Json<UpdateProfileRequest>,
+) -> Result<Json<UserResponse>, StatusCode> {
+    let user = resolve_user(&mut session, &pool).await?;
+
+    let updated_user = crate::db::update_user_profile(
+        &pool,
+        user.id,
+        req.username,
+        req.bio,
+        req.avatar_url,
+    )
+    .await
+    .map_err(|e| {
+        warn!("Failed to update profile for user {}: {}", user.id, e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    info!("User {} updated profile", updated_user.username);
+
+    Ok(Json(UserResponse {
+        id: updated_user.id,
+        username: updated_user.username,
+        provider: updated_user.provider,
+        bio: updated_user.bio,
+        avatar_url: updated_user.avatar_url,
+        created_at: updated_user.created_at,
+    }))
+}
+
+#[tracing::instrument(skip(session, pool))]
+async fn delete_account_handler(
+    mut session: AuthSession,
+    State(pool): State<Arc<PgPool>>,
+) -> Result<StatusCode, StatusCode> {
+    let user = resolve_user(&mut session, &pool).await?;
+
+    crate::db::delete_user(&pool, user.id).await.map_err(|e| {
+        warn!("Failed to delete user {}: {}", user.id, e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    info!("User {} deleted their account", user.username);
+
+    // Note: session logout should ideally be handled by the client redirecting to /logout
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[tracing::instrument(skip(_session, pool))]
@@ -161,11 +234,14 @@ async fn list_users_handler(
                 id: u.id,
                 username: u.username,
                 provider: u.provider,
+                bio: u.bio,
+                avatar_url: u.avatar_url,
                 created_at: u.created_at,
             })
             .collect(),
     ))
 }
+
 
 #[tracing::instrument(skip(_session, pool))]
 async fn debug_list_users_handler(
@@ -239,9 +315,29 @@ async fn inbox_handler(
                 content: m.content,
                 created_at: m.created_at,
                 is_read: m.is_read,
+                reactions: m.reactions,
             })
             .collect(),
     ))
+}
+
+#[tracing::instrument(skip(session, pool))]
+async fn react_message_handler(
+    mut session: AuthSession,
+    State(pool): State<Arc<PgPool>>,
+    axum::extract::Path(message_id): axum::extract::Path<Uuid>,
+    Json(req): Json<ReactMessageRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let user = resolve_user(&mut session, &pool).await?;
+
+    crate::db::add_message_reaction(&pool, message_id, user.id, &req.emoji)
+        .await
+        .map_err(|e| {
+            warn!("Failed to add reaction: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    Ok(StatusCode::OK)
 }
 
 #[tracing::instrument(skip(session, pool))]
@@ -295,7 +391,27 @@ async fn list_broadcasts_handler(
                 content: b.content,
                 is_anonymous: b.is_anonymous,
                 created_at: b.created_at,
+                view_count: b.view_count.unwrap_or(0),
             })
             .collect(),
     ))
 }
+
+#[tracing::instrument(skip(session, pool))]
+async fn view_broadcast_handler(
+    mut session: AuthSession,
+    State(pool): State<Arc<PgPool>>,
+    axum::extract::Path(broadcast_id): axum::extract::Path<Uuid>,
+) -> Result<StatusCode, StatusCode> {
+    let user = resolve_user(&mut session, &pool).await?;
+
+    crate::db::track_broadcast_view(&pool, broadcast_id, user.id)
+        .await
+        .map_err(|e| {
+            warn!("Failed to track view: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    Ok(StatusCode::OK)
+}
+

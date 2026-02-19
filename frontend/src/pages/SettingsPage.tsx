@@ -1,8 +1,47 @@
-import { Settings, User, Bell, Lock } from "lucide-react";
+import { useState } from "react";
+import { Settings, User, Bell, Lock, Trash2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useAuth } from "@/providers/AuthProvider";
+import { auth } from "@/lib/api";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const SettingsPage = () => {
+  const { user } = useAuth();
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [username, setUsername] = useState(user?.username || "");
+  const [bio, setBio] = useState(user?.bio || "");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleUpdateProfile = async () => {
+    setIsSaving(true);
+    try {
+      await auth.updateProfile({ username, bio });
+      toast.success("Profile updated successfully");
+      setIsEditingProfile(false);
+      // Refresh page or update context to show new data
+      window.location.reload();
+    } catch (error) {
+      toast.error("Failed to update profile");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Are you sure you want to delete your account? This action is irreversible.")) {
+      return;
+    }
+    try {
+      await auth.deleteAccount();
+      toast.success("Account deleted");
+      window.location.href = "/";
+    } catch (error) {
+      toast.error("Failed to delete account");
+    }
+  };
+
   return (
     <div>
       <div className="mb-8">
@@ -14,8 +53,68 @@ const SettingsPage = () => {
       </div>
 
       <div className="space-y-6 max-w-xl">
+        {/* Profile Section */}
+        <div className="glass flex flex-col rounded-xl p-5 gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                <User className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-mono text-sm font-semibold text-foreground">Profile</h3>
+                <p className="font-mono text-xs text-muted-foreground">Update your agent identity</p>
+              </div>
+            </div>
+            {!isEditingProfile && (
+              <Button variant="glass" size="sm" onClick={() => setIsEditingProfile(true)}>Edit</Button>
+            )}
+          </div>
+
+          {isEditingProfile ? (
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <label className="text-xs font-mono text-muted-foreground">Username</label>
+                <Input 
+                  value={username} 
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="bg-background/50 font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-mono text-muted-foreground">Bio</label>
+                <Textarea 
+                  value={bio} 
+                  onChange={(e) => setBio(e.target.value)}
+                  className="bg-background/50 font-mono resize-none"
+                  placeholder="Describe your shadow self..."
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="ghost" size="sm" onClick={() => setIsEditingProfile(false)}>Cancel</Button>
+                <Button variant="glass" size="sm" onClick={handleUpdateProfile} disabled={isSaving}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSaving ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="pt-2 px-1">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-mono text-muted-foreground uppercase tracking-tighter">Current Username</span>
+                <span className="text-sm font-mono text-foreground">{user?.username}</span>
+              </div>
+              {user?.bio && (
+                <div className="flex flex-col gap-1 mt-3">
+                  <span className="text-xs font-mono text-muted-foreground uppercase tracking-tighter">Bio</span>
+                  <span className="text-sm font-mono text-foreground">{user.bio}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Other Sections (Placeholders) */}
         {[
-          { icon: User, title: "Profile", desc: "Update your agent identity" },
           { icon: Bell, title: "Notifications", desc: "Manage alert preferences" },
           { icon: Lock, title: "Security", desc: "Encryption & privacy settings" },
         ].map((item) => (
@@ -32,6 +131,20 @@ const SettingsPage = () => {
             <Button variant="glass" size="sm" onClick={() => toast.info(`Editing ${item.title}`, { description: "This feature is coming soon." })}>Edit</Button>
           </div>
         ))}
+
+        {/* Danger Zone */}
+        <div className="glass border-destructive/20 flex items-center justify-between rounded-xl p-5 mt-10">
+          <div className="flex items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10">
+              <Trash2 className="h-5 w-5 text-destructive" />
+            </div>
+            <div>
+              <h3 className="font-mono text-sm font-semibold text-destructive">Danger Zone</h3>
+              <p className="font-mono text-xs text-muted-foreground">Permanently delete your account</p>
+            </div>
+          </div>
+          <Button variant="destructive" size="sm" onClick={handleDeleteAccount}>Delete Account</Button>
+        </div>
       </div>
     </div>
   );

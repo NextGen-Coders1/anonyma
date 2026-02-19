@@ -1,11 +1,73 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Radio, Heart, Send, Loader2 } from "lucide-react";
+import { Radio, Heart, Send, Loader2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { broadcasts } from "@/lib/api";
+import { broadcasts, Broadcast } from "@/lib/api";
 import { toast } from "sonner";
+
+const BroadcastItem = ({ bc, index }: { bc: Broadcast; index: number }) => {
+  const observerRef = useRef<HTMLDivElement>(null);
+  const [hasTracked, setHasTracked] = useState(false);
+
+  const viewMutation = useMutation({
+    mutationFn: (id: string) => broadcasts.trackView(id),
+  });
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !hasTracked) {
+          setHasTracked(true);
+          viewMutation.mutate(bc.id);
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [bc.id, hasTracked, viewMutation]);
+
+  return (
+    <motion.div
+      ref={observerRef}
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      className="glass rounded-xl p-5 transition-all duration-300 hover:neon-border-cyan"
+    >
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted font-mono text-xs font-bold text-secondary">
+          {bc.is_anonymous ? "AN" : (bc.sender_username?.[0] || "?").toUpperCase()}
+        </div>
+        <div className="flex flex-col">
+          <span className="font-mono text-xs font-semibold text-foreground">
+            {bc.is_anonymous ? "Anonymous" : bc.sender_username}
+          </span>
+          <span className="font-mono text-xs text-muted-foreground">
+            {new Date(bc.created_at).toLocaleString()}
+          </span>
+        </div>
+      </div>
+      <p className="mb-4 font-mono text-sm text-foreground/90 leading-relaxed">{bc.content}</p>
+      <div className="flex items-center gap-4 text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <Heart className="h-3.5 w-3.5" />
+          <span className="font-mono text-xs">0</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Eye className="h-3.5 w-3.5 text-secondary" />
+          <span className="font-mono text-xs text-secondary">{bc.view_count || 0}</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 const BroadcastPage = () => {
   const [broadcastText, setBroadcastText] = useState("");
@@ -15,6 +77,7 @@ const BroadcastPage = () => {
   const { data: broadcastList = [], isLoading } = useQuery({
     queryKey: ['broadcasts'],
     queryFn: broadcasts.list,
+    refetchInterval: 5000, // Refetch every 5s to sync view counts
   });
 
   const createBroadcast = useMutation({
@@ -85,7 +148,7 @@ const BroadcastPage = () => {
 
       {/* Feed */}
       <div className="space-y-4">
-        {isLoading ? (
+        {isLoading && broadcastList.length === 0 ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -95,32 +158,7 @@ const BroadcastPage = () => {
           </div>
         ) : (
           broadcastList.map((bc, i) => (
-            <motion.div
-              key={bc.id}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="glass rounded-xl p-5 transition-all duration-300 hover:neon-border-cyan"
-            >
-              <div className="mb-3 flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted font-mono text-xs font-bold text-secondary">
-                  {bc.is_anonymous ? "AN" : (bc.sender_username?.[0] || "?").toUpperCase()}
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-mono text-xs font-semibold text-foreground">
-                    {bc.is_anonymous ? "Anonymous" : bc.sender_username}
-                  </span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {new Date(bc.created_at).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-              <p className="mb-4 font-mono text-sm text-foreground/90 leading-relaxed">{bc.content}</p>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Heart className="h-3.5 w-3.5" />
-                <span className="font-mono text-xs">0</span>
-              </div>
-            </motion.div>
+            <BroadcastItem key={bc.id} bc={bc} index={i} />
           ))
         )}
       </div>

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Anonyma employs a monorepo structure integrating a high-performance Rust backend with a Next.js frontend, designed for type safety and reliability.
+Anonyma employs a monorepo structure integrating a high-performance Rust backend with a React (Vite) frontend, designed for speed, type safety, and maximum user privacy.
 
 ## Technology Stack
 
@@ -11,7 +11,7 @@ Anonyma employs a monorepo structure integrating a high-performance Rust backend
 | **Backend** | Rust + Axum | High-performance, memory-safe API server. |
 | **Auth** | Authkestra | OAuth2 (GitHub) and secure session management. |
 | **Database** | PostgreSQL | Relational persistence managed via SQLx. |
-| **Frontend** | Next.js | React framework for modern web interfaces. |
+| **Frontend** | React (Vite) | Modern web interface with Tailwind CSS and shadcn/ui. |
 
 ## Database Schema
 
@@ -22,6 +22,8 @@ erDiagram
         TEXT username
         TEXT provider
         TEXT provider_id
+        TEXT bio
+        TEXT avatar_url
         TIMESTAMP created_at
     }
     MESSAGES {
@@ -31,6 +33,13 @@ erDiagram
         TIMESTAMP created_at
         BOOLEAN is_read
     }
+    MESSAGE_REACTIONS {
+        UUID id PK
+        UUID message_id FK
+        UUID user_id FK
+        TEXT emoji
+        TIMESTAMP created_at
+    }
     BROADCASTS {
         UUID id PK
         UUID sender_id FK
@@ -38,25 +47,34 @@ erDiagram
         BOOLEAN is_anonymous
         TIMESTAMP created_at
     }
+    BROADCAST_VIEWS {
+        UUID id PK
+        UUID broadcast_id FK
+        UUID user_id FK
+        TIMESTAMP viewed_at
+    }
 
     USERS ||--o{ MESSAGES : "receives"
     USERS ||--o{ BROADCASTS : "posts"
+    USERS ||--o{ MESSAGE_REACTIONS : "reacts"
+    USERS ||--o{ BROADCAST_VIEWS : "views"
+    MESSAGES ||--o{ MESSAGE_REACTIONS : "has"
+    BROADCASTS ||--o{ BROADCAST_VIEWS : "has"
 ```
 
 ## Security Design
 
+### Anonymity First
+The core design principle is that the Sender ID of a P2P message is never recorded in the messages table. This ensures cryptographic-level anonymity for the sender, as there is no database link between the message and its origin.
+
 ### Authentication
-The system uses the OAuth 2.0 Authorization Code flow with GitHub as the provider.
-1. Users authenticate via GitHub.
-2. The backend exchanges the code for a token.
-3. A secure, HTTP-only session cookie is issued to the client.
+The system supports both local credentials and GitHub OAuth 2.0. Secure, HTTP-only session cookies are used to maintain agent state without exposing tokens to the client-side JavaScript.
 
-### State Management
-- **Backend**: Uses distinct state isolation. `AuthkestraState` manages authentication logic, while `Extension<PgPool>` provides database access, merged into a single Axum router.
-- **Frontend**: React hooks manage local UI state and API integration.
+### Real-time View Tracking
+Broadcast views are tracked once per agent using an IntersectionObserver on the frontend, ensuring that Read Receipts are accurate and non-intrusive.
 
-## CI/CD Pipeline
+## CI/CD and Maintenance
 
-Automated workflows validate code quality on every push:
-- **Rust**: Format checks (`cargo fmt`), linting (`cargo clippy`), and automated testing (`cargo test`).
-- **TypeScript**: Static analysis (`npm run lint`) and type checking (`tsc`).
+- **Backend**: cargo clippy and cargo test.
+- **Frontend**: eslint and vitest.
+- **Database**: Versioned migrations via SQLx.

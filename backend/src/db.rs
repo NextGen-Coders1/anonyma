@@ -17,6 +17,8 @@ pub struct User {
     pub password_hash: Option<String>,
     pub provider: String,
     pub provider_id: Option<String>,
+    pub bio: Option<String>,
+    pub avatar_url: Option<String>,
     pub created_at: OffsetDateTime,
 }
 
@@ -28,6 +30,7 @@ pub struct Message {
     pub content: String,
     pub created_at: OffsetDateTime,
     pub is_read: bool,
+    pub reactions: Option<serde_json::Value>,
 }
 
 #[allow(dead_code)]
@@ -39,6 +42,7 @@ pub struct Broadcast {
     pub content: String,
     pub is_anonymous: bool,
     pub created_at: OffsetDateTime,
+    pub view_count: Option<i64>,
 }
 
 // ===== User Operations =====
@@ -71,7 +75,7 @@ pub async fn upsert_user(
                 UPDATE users
                 SET username = $1
                 WHERE id = $2
-                RETURNING id, username, password_hash, provider, provider_id, created_at
+                RETURNING id, username, password_hash, provider, provider_id, bio, avatar_url, created_at
                 "#,
             )
             .bind(username)
@@ -104,7 +108,7 @@ pub async fn upsert_user(
                 UPDATE users
                 SET provider = $1, provider_id = $2
                 WHERE id = $3
-                RETURNING id, username, password_hash, provider, provider_id, created_at
+                RETURNING id, username, password_hash, provider, provider_id, bio, avatar_url, created_at
                 "#,
             )
             .bind(provider)
@@ -122,7 +126,7 @@ pub async fn upsert_user(
                     UPDATE users
                     SET username = $1
                     WHERE id = $2
-                    RETURNING id, username, password_hash, provider, provider_id, created_at
+                    RETURNING id, username, password_hash, provider, provider_id, bio, avatar_url, created_at
                     "#,
                 )
                 .bind(username)
@@ -141,7 +145,7 @@ pub async fn upsert_user(
         r#"
         INSERT INTO users (id, username, provider, provider_id, created_at)
         VALUES ($1, $2, $3, $4, NOW())
-        RETURNING id, username, password_hash, provider, provider_id, created_at
+        RETURNING id, username, password_hash, provider, provider_id, bio, avatar_url, created_at
         "#,
     )
     .bind(Uuid::new_v4())
@@ -163,7 +167,7 @@ pub async fn create_local_user(
         r#"
         INSERT INTO users (id, username, password_hash, provider, created_at)
         VALUES ($1, $2, $3, 'local', NOW())
-        RETURNING id, username, password_hash, provider, provider_id, created_at
+        RETURNING id, username, password_hash, provider, provider_id, bio, avatar_url, created_at
         "#,
     )
     .bind(Uuid::new_v4())
@@ -177,7 +181,7 @@ pub async fn create_local_user(
 pub async fn get_user_by_username(pool: &PgPool, username: &str) -> Result<Option<User>> {
     let user = sqlx::query_as::<_, User>(
         r#"
-        SELECT id, username, password_hash, provider, provider_id, created_at
+        SELECT id, username, password_hash, provider, provider_id, bio, avatar_url, created_at
         FROM users
         WHERE LOWER(username) = LOWER($1)
         "#,
@@ -193,7 +197,7 @@ pub async fn get_user_by_username(pool: &PgPool, username: &str) -> Result<Optio
 pub async fn get_user_by_id(pool: &PgPool, user_id: Uuid) -> Result<User> {
     let user = sqlx::query_as::<_, User>(
         r#"
-        SELECT id, username, password_hash, provider, provider_id, created_at
+        SELECT id, username, password_hash, provider, provider_id, bio, avatar_url, created_at
         FROM users
         WHERE id = $1
         "#,
@@ -208,7 +212,7 @@ pub async fn get_user_by_id(pool: &PgPool, user_id: Uuid) -> Result<User> {
 pub async fn get_all_users(pool: &PgPool) -> Result<Vec<User>> {
     let users = sqlx::query_as::<_, User>(
         r#"
-        SELECT id, username, password_hash, provider, provider_id, created_at
+        SELECT id, username, password_hash, provider, provider_id, bio, avatar_url, created_at
         FROM users
         ORDER BY created_at DESC
         "#,
@@ -244,10 +248,24 @@ pub async fn create_message(pool: &PgPool, recipient_id: Uuid, content: &str) ->
 pub async fn get_user_inbox(pool: &PgPool, recipient_id: Uuid) -> Result<Vec<Message>> {
     let messages = sqlx::query_as::<_, Message>(
         r#"
-        SELECT id, recipient_id, content, created_at, is_read
-        FROM messages
-        WHERE recipient_id = $1
-        ORDER BY created_at DESC
+        SELECT 
+            m.id, 
+            m.recipient_id, 
+            m.content, 
+            m.created_at, 
+            m.is_read,
+            (
+                SELECT json_object_agg(emoji, count)
+                FROM (
+                    SELECT emoji, count(*) as count
+                    FROM message_reactions
+                    WHERE message_id = m.id
+                    GROUP BY emoji
+                ) s
+            ) as reactions
+        FROM messages m
+        WHERE m.recipient_id = $1
+        ORDER BY m.created_at DESC
         "#,
     )
     .bind(recipient_id)
@@ -255,6 +273,29 @@ pub async fn get_user_inbox(pool: &PgPool, recipient_id: Uuid) -> Result<Vec<Mes
     .await?;
 
     Ok(messages)
+}
+
+pub async fn add_message_reaction(
+    pool: &PgPool,
+    message_id: Uuid,
+    user_id: Uuid,
+    emoji: &str,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO message_reactions (message_id, user_id, emoji)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (message_id, user_id) 
+        DO UPDATE SET emoji = $3
+        "#,
+    )
+    .bind(message_id)
+    .bind(user_id)
+    .bind(emoji)
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }
 
 // ===== Broadcast Operations =====
@@ -294,7 +335,8 @@ pub async fn get_broadcasts(pool: &PgPool, limit: i64) -> Result<Vec<Broadcast>>
             u.username as sender_username,
             b.content, 
             b.is_anonymous, 
-            b.created_at
+            b.created_at,
+            (SELECT count(*) FROM broadcast_views WHERE broadcast_id = b.id) as view_count
         FROM broadcasts b
         LEFT JOIN users u ON b.sender_id = u.id
         ORDER BY b.created_at DESC
@@ -307,3 +349,53 @@ pub async fn get_broadcasts(pool: &PgPool, limit: i64) -> Result<Vec<Broadcast>>
 
     Ok(broadcasts)
 }
+
+pub async fn track_broadcast_view(pool: &PgPool, broadcast_id: Uuid, user_id: Uuid) -> Result<()> {
+    sqlx::query(
+        "INSERT INTO broadcast_views (broadcast_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"
+    )
+    .bind(broadcast_id)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+
+pub async fn update_user_profile(
+    pool: &PgPool,
+    user_id: Uuid,
+    username: Option<String>,
+    bio: Option<String>,
+    avatar_url: Option<String>,
+) -> Result<User> {
+    let user = sqlx::query_as::<_, User>(
+        r#"
+        UPDATE users
+        SET 
+            username = COALESCE($1, username),
+            bio = COALESCE($2, bio),
+            avatar_url = COALESCE($3, avatar_url),
+            updated_at = NOW()
+        WHERE id = $4
+        RETURNING id, username, password_hash, provider, provider_id, bio, avatar_url, created_at
+        "#,
+    )
+    .bind(username)
+    .bind(bio)
+    .bind(avatar_url)
+    .bind(user_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(user)
+}
+
+pub async fn delete_user(pool: &PgPool, user_id: Uuid) -> Result<()> {
+    sqlx::query("DELETE FROM users WHERE id = $1")
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+

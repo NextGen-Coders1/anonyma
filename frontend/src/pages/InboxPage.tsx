@@ -1,15 +1,31 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Inbox, EyeOff, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Inbox, EyeOff, ChevronDown, ChevronUp, Loader2, Smile } from "lucide-react";
 import { messages } from "@/lib/api";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+
+const EMOJIS = ["🔥", "❤️", "😂", "😮", "😢", "👏"];
 
 const InboxPage = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: messageList = [], isLoading } = useQuery({
     queryKey: ['inbox'],
     queryFn: messages.inbox,
+  });
+
+  const reactMutation = useMutation({
+    mutationFn: ({ messageId, emoji }: { messageId: string; emoji: string }) =>
+      messages.react(messageId, emoji),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inbox'] });
+    },
+    onError: () => {
+      toast.error("Failed to add reaction");
+    },
   });
 
   const unreadCount = messageList.filter((m) => !m.is_read).length;
@@ -78,16 +94,45 @@ const InboxPage = () => {
               </div>
 
               <AnimatePresence>
-                {expandedId === msg.id ? (
-                  <motion.p
+                {expandedId === msg.id && (
+                  <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="mt-4 font-mono text-sm text-foreground/80 border-t border-border pt-4"
+                    className="overflow-hidden"
                   >
-                    {msg.content}
-                  </motion.p>
-                ) : (
+                    <p className="mt-4 font-mono text-sm text-foreground/80 border-t border-border pt-4">
+                      {msg.content}
+                    </p>
+                    
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      {/* Existing Reactions */}
+                      {msg.reactions && Object.entries(msg.reactions).map(([emoji, count]) => (
+                        <div key={emoji} className="flex items-center gap-1 rounded-full bg-muted/50 px-2 py-0.5 text-xs">
+                          <span>{emoji}</span>
+                          <span className="font-bold text-primary">{count}</span>
+                        </div>
+                      ))}
+                      
+                      {/* Add Reaction */}
+                      <div className="flex items-center gap-1 ml-auto">
+                        {EMOJIS.map(emoji => (
+                          <button
+                            key={emoji}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              reactMutation.mutate({ messageId: msg.id, emoji });
+                            }}
+                            className="hover:scale-125 transition-transform text-sm p-1"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+                {expandedId !== msg.id && (
                   <p className="mt-3 truncate font-mono text-sm text-muted-foreground">
                     {msg.content}
                   </p>
