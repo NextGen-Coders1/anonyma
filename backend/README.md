@@ -39,9 +39,9 @@ The high-performance core of Anonyma, built with Rust.
 | /api/me | POST | Update username/bio |
 | /api/messages | POST | Send an anonymous message |
 | /api/messages/inbox | GET | Fetch incoming messages |
-| /api/messages/:id/react | POST | React to a message |
+| /api/messages/{id}/react | POST | React to a message |
 | /api/broadcasts | GET | List public broadcasts |
-| /api/broadcasts/:id/view | POST | Track broadcast view |
+| /api/broadcasts/{id}/view | POST | Track broadcast view |
 
 ## Testing
 

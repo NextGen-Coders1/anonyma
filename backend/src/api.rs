@@ -27,10 +27,10 @@ where
         .route("/debug/users", get(debug_list_users_handler))
         .route("/messages", post(send_message_handler))
         .route("/messages/inbox", get(inbox_handler))
-        .route("/messages/:id/react", post(react_message_handler))
+        .route("/messages/{id}/react", post(react_message_handler))
         .route("/broadcasts", post(create_broadcast_handler))
         .route("/broadcasts", get(list_broadcasts_handler))
-        .route("/broadcasts/:id/view", post(view_broadcast_handler))
+        .route("/broadcasts/{id}/view", post(view_broadcast_handler))
 }
 
 // ===== Request/Response Types =====
