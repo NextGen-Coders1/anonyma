@@ -140,7 +140,8 @@ pub async fn upsert_user(
             return Ok(updated);
         }
         // If it's already a different provider but matching provider_id, we update username if changed
-        if user.provider == provider && user.provider_id == provider_id && user.username != username {
+        if user.provider == provider && user.provider_id == provider_id && user.username != username
+        {
             let updated = sqlx::query_as::<_, User>(
                 r#"
                 UPDATE users
