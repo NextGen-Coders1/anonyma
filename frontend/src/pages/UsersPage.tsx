@@ -1,18 +1,31 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Users, Loader2, Send } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Users, Loader2, Send, ShieldOff } from "lucide-react";
 import { users } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import SendMessageModal from "@/components/SendMessageModal";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 const UsersPage = () => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedUsername, setSelectedUsername] = useState<string>("");
+  const queryClient = useQueryClient();
 
   const { data: usersList = [], isLoading } = useQuery({
     queryKey: ['users'],
     queryFn: users.list,
+  });
+
+  const blockMutation = useMutation({
+    mutationFn: (userId: string) => users.block(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User blocked');
+    },
+    onError: () => {
+      toast.error('Failed to block user');
+    },
   });
 
   const handleSendMessage = (userId: string, username: string) => {
@@ -62,11 +75,25 @@ const UsersPage = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full"
+                className="w-full mb-2"
                 onClick={() => handleSendMessage(user.id, user.username)}
               >
                 <Send className="mr-2 h-3.5 w-3.5" />
                 Send Message
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-destructive hover:text-destructive"
+                onClick={() => {
+                  if (window.confirm(`Block ${user.username}? They won't be able to send you messages.`)) {
+                    blockMutation.mutate(user.id);
+                  }
+                }}
+                disabled={blockMutation.isPending}
+              >
+                <ShieldOff className="mr-2 h-3.5 w-3.5" />
+                Block User
               </Button>
             </motion.div>
           ))}

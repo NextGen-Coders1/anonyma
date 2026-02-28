@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Settings, User, Bell, Lock, Trash2, Save } from "lucide-react";
+import { Settings, User, Bell, Trash2, Save, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "@/providers/AuthProvider";
-import { auth } from "@/lib/api";
+import { auth, preferences } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 
 const SettingsPage = () => {
   const { user } = useAuth();
@@ -14,18 +15,40 @@ const SettingsPage = () => {
   const [bio, setBio] = useState(user?.bio || "");
   const [isSaving, setIsSaving] = useState(false);
 
+  // Notification settings (browser notifications with sound only)
+  const [browserNotifications, setBrowserNotifications] = useState(
+    localStorage.getItem("browserNotifications") !== "false" // default true
+  );
+  const [notificationSound, setNotificationSound] = useState(
+    localStorage.getItem("notificationSound") !== "false" // default true
+  );
+
   const handleUpdateProfile = async () => {
     setIsSaving(true);
     try {
       await auth.updateProfile({ username, bio });
       toast.success("Profile updated successfully");
       setIsEditingProfile(false);
-      // Refresh page or update context to show new data
       window.location.reload();
     } catch (error) {
       toast.error("Failed to update profile");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveNotifications = async () => {
+    try {
+      await preferences.update({
+        browser_notifications: browserNotifications,
+        notification_sound: notificationSound,
+      });
+      localStorage.setItem("browserNotifications", browserNotifications.toString());
+      localStorage.setItem("notificationSound", notificationSound.toString());
+      toast.success("Notification preferences saved");
+    } catch (error) {
+      console.error("Failed to save preferences:", error);
+      toast.error("Failed to save preferences");
     }
   };
 
@@ -113,24 +136,49 @@ const SettingsPage = () => {
           )}
         </div>
 
-        {/* Other Sections (Placeholders) */}
-        {[
-          { icon: Bell, title: "Notifications", desc: "Manage alert preferences" },
-          { icon: Lock, title: "Security", desc: "Encryption & privacy settings" },
-        ].map((item) => (
-          <div key={item.title} className="glass flex items-center justify-between rounded-xl p-5">
+        {/* Notifications Section */}
+        <div className="glass flex flex-col rounded-xl p-5 gap-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                <item.icon className="h-5 w-5 text-primary" />
+                <Bell className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-mono text-sm font-semibold text-foreground">{item.title}</h3>
-                <p className="font-mono text-xs text-muted-foreground">{item.desc}</p>
+                <h3 className="font-mono text-sm font-semibold text-foreground">Notifications</h3>
+                <p className="font-mono text-xs text-muted-foreground">Browser notifications with sound</p>
               </div>
             </div>
-            <Button variant="glass" size="sm" onClick={() => toast.info(`Editing ${item.title}`, { description: "This feature is coming soon." })}>Edit</Button>
           </div>
-        ))}
+
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-mono text-foreground">Browser Notifications</p>
+                <p className="text-xs font-mono text-muted-foreground">Show desktop notifications</p>
+              </div>
+              <Switch
+                checked={browserNotifications}
+                onCheckedChange={setBrowserNotifications}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-mono text-foreground">Notification Sound</p>
+                <p className="text-xs font-mono text-muted-foreground">Play sound on new messages</p>
+              </div>
+              <Switch
+                checked={notificationSound}
+                onCheckedChange={setNotificationSound}
+              />
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button variant="glass" size="sm" onClick={handleSaveNotifications}>
+                <Check className="h-4 w-4 mr-2" />
+                Save Preferences
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {/* Danger Zone */}
         <div className="glass border-destructive/20 flex items-center justify-between rounded-xl p-5 mt-10">

@@ -1,15 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Radio, Heart, Send, Loader2, Eye } from "lucide-react";
+import { Radio, Heart, Send, Loader2, Eye, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { broadcasts, Broadcast } from "@/lib/api";
 import { toast } from "sonner";
+import { BroadcastComments } from "@/components/BroadcastComments";
 
 const BroadcastItem = ({ bc, index }: { bc: Broadcast; index: number }) => {
   const observerRef = useRef<HTMLDivElement>(null);
   const [hasTracked, setHasTracked] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   const viewMutation = useMutation({
     mutationFn: (id: string) => broadcasts.trackView(id),
@@ -64,7 +66,19 @@ const BroadcastItem = ({ bc, index }: { bc: Broadcast; index: number }) => {
           <Eye className="h-3.5 w-3.5 text-secondary" />
           <span className="font-mono text-xs text-secondary">{bc.view_count || 0}</span>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowComments(!showComments)}
+          className="ml-auto h-7 gap-1.5 text-xs"
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          <span className="font-mono">{showComments ? 'Hide' : 'Show'} Comments</span>
+        </Button>
       </div>
+
+      {/* Comments Section */}
+      {showComments && <BroadcastComments broadcastId={bc.id} />}
     </motion.div>
   );
 };

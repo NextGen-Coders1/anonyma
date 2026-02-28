@@ -8,6 +8,7 @@ use dotenvy::dotenv;
 use std::sync::Arc;
 use tower_cookies::CookieManagerLayer;
 use config::Config;
+use std::time::Duration;
 
 mod auth;
 mod db;
@@ -64,6 +65,7 @@ async fn main() {
     let state = AppState {
         authkestra: authkestra.clone(),
         db_pool: Arc::new(pool),
+        notification_hub: std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
     };
 
     // CORS configuration
@@ -85,6 +87,16 @@ async fn main() {
             axum::http::header::COOKIE,
         ])
         .allow_credentials(true);
+
+    // Spawn a task to clean up typing indicators periodically
+    let pool_clone = state.db_pool.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            let _ = crate::db::cleanup_typing_indicators(&pool_clone).await;
+        }
+    });
 
     // Build app with routes and merge Authkestra router
     let app = Router::new()

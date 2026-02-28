@@ -14,18 +14,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        // Set a timeout to prevent infinite loading
+        const timeout = setTimeout(() => {
+            console.warn('Auth check timed out, assuming not authenticated');
+            setIsLoading(false);
+        }, 5000);
+
         auth
             .getMe()
             .then((userData) => {
                 setUser(userData);
+                clearTimeout(timeout);
             })
-            .catch(() => {
+            .catch((error) => {
                 // Not authenticated - this is okay
+                console.log('Not authenticated:', error.message);
                 setUser(null);
+                clearTimeout(timeout);
             })
             .finally(() => {
                 setIsLoading(false);
             });
+
+        return () => clearTimeout(timeout);
     }, []);
 
     return (

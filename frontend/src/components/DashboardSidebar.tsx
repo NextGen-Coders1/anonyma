@@ -1,13 +1,15 @@
-import { Inbox, Users, Radio, Settings, Shield, LogOut } from "lucide-react";
+import { Inbox, Users, Radio, Settings, Shield, LogOut, ShieldOff } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/providers/AuthProvider";
 import { auth } from "@/lib/api";
 import { useEffect, useState } from "react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navItems = [
   { title: "Inbox", url: "/dashboard/inbox", icon: Inbox },
   { title: "Users", url: "/dashboard/users", icon: Users },
   { title: "Broadcasts", url: "/dashboard/broadcasts", icon: Radio },
+  { title: "Blocked", url: "/dashboard/blocked", icon: ShieldOff },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
 
@@ -54,6 +56,14 @@ const DashboardSidebar = () => {
           </NavLink>
         ))}
       </nav>
+
+      {/* Theme Toggle */}
+      <div className="px-6 py-2 border-t border-border">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-mono text-muted-foreground">Theme</span>
+          <ThemeToggle />
+        </div>
+      </div>
 
       {/* Profile */}
       <div className="border-t border-border p-4">
