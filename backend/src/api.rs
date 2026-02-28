@@ -1,3 +1,4 @@
+use axum::response::sse::{Event, KeepAlive};
 use axum::{
     extract::{FromRef, FromRequestParts, State},
     http::StatusCode,
@@ -5,17 +6,16 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use axum::response::sse::{Event, KeepAlive};
 use futures_util::stream::{self, Stream};
 use serde::{Deserialize, Serialize};
 use sqlx::{types::time::OffsetDateTime, PgPool};
-use std::sync::Arc;
 use std::convert::Infallible;
+use std::sync::Arc;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use authkestra::axum::AuthSession;
 use crate::state::{NotificationHub, SseEvent};
+use authkestra::axum::AuthSession;
 
 pub fn api_router<S>() -> Router<S>
 where
@@ -37,14 +37,26 @@ where
         .route("/messages/{id}/react", post(react_message_handler))
         .route("/messages/{id}/reply", post(reply_message_handler))
         .route("/messages/{id}/edit", post(edit_message_handler))
-        .route("/messages/{id}/delete", axum::routing::delete(delete_message_handler))
+        .route(
+            "/messages/{id}/delete",
+            axum::routing::delete(delete_message_handler),
+        )
         .route("/messages/{id}/pin", post(toggle_pin_message_handler))
         // Conversations (threads)
         .route("/conversations", get(list_conversations_handler))
         .route("/conversations/{thread_id}", get(get_thread_handler))
-        .route("/conversations/{thread_id}/delete", axum::routing::delete(delete_thread_handler))
-        .route("/conversations/{thread_id}/pin", post(toggle_pin_thread_handler))
-        .route("/conversations/{thread_id}/typing", post(typing_indicator_handler))
+        .route(
+            "/conversations/{thread_id}/delete",
+            axum::routing::delete(delete_thread_handler),
+        )
+        .route(
+            "/conversations/{thread_id}/pin",
+            post(toggle_pin_thread_handler),
+        )
+        .route(
+            "/conversations/{thread_id}/typing",
+            post(typing_indicator_handler),
+        )
         // User Blocking
         .route("/users/{id}/block", post(block_user_handler))
         .route("/users/{id}/unblock", post(unblock_user_handler))
@@ -53,10 +65,22 @@ where
         .route("/broadcasts", post(create_broadcast_handler))
         .route("/broadcasts", get(list_broadcasts_handler))
         .route("/broadcasts/{id}/view", post(view_broadcast_handler))
-        .route("/broadcasts/{id}/comments", get(get_broadcast_comments_handler))
-        .route("/broadcasts/{id}/comments", post(create_broadcast_comment_handler))
-        .route("/broadcasts/comments/{id}/react", post(react_to_comment_handler))
-        .route("/broadcasts/comments/{id}/delete", axum::routing::delete(delete_comment_handler))
+        .route(
+            "/broadcasts/{id}/comments",
+            get(get_broadcast_comments_handler),
+        )
+        .route(
+            "/broadcasts/{id}/comments",
+            post(create_broadcast_comment_handler),
+        )
+        .route(
+            "/broadcasts/comments/{id}/react",
+            post(react_to_comment_handler),
+        )
+        .route(
+            "/broadcasts/comments/{id}/delete",
+            axum::routing::delete(delete_comment_handler),
+        )
         // User Preferences
         .route("/preferences", get(get_preferences_handler))
         .route("/preferences", post(update_preferences_handler))
@@ -169,12 +193,10 @@ async fn resolve_user(
     if provider == "local" {
         if let Ok(user_id) = Uuid::parse_str(&external_id) {
             info!("Resolving local user by UUID: {user_id}");
-            return crate::db::get_user_by_id(pool, user_id)
-                .await
-                .map_err(|e| {
-                    warn!("Failed to resolve user by ID {user_id}: {e}");
-                    StatusCode::UNAUTHORIZED
-                });
+            return crate::db::get_user_by_id(pool, user_id).await.map_err(|e| {
+                warn!("Failed to resolve user by ID {user_id}: {e}");
+                StatusCode::UNAUTHORIZED
+            });
         }
     }
 
@@ -226,12 +248,10 @@ async fn sse_handler(
     // Create or re-use a broadcast channel for this user
     let receiver = {
         let mut hub = hub.lock().await;
-        let sender = hub
-            .entry(user_id)
-            .or_insert_with(|| {
-                let (tx, _) = tokio::sync::broadcast::channel(32);
-                tx
-            });
+        let sender = hub.entry(user_id).or_insert_with(|| {
+            let (tx, _) = tokio::sync::broadcast::channel(32);
+            tx
+        });
         sender.subscribe()
     };
 
@@ -239,9 +259,7 @@ async fn sse_handler(
     let stream = stream::unfold(receiver, |mut rx| async move {
         match rx.recv().await {
             Ok(evt) => {
-                let sse_event = Event::default()
-                    .event(evt.event_type)
-                    .data(evt.data);
+                let sse_event = Event::default().event(evt.event_type).data(evt.data);
                 Some((Ok(sse_event), rx))
             }
             Err(_) => None, // Channel closed or lagged — end stream
@@ -278,18 +296,13 @@ async fn update_profile_handler(
 ) -> Result<Json<UserResponse>, StatusCode> {
     let user = resolve_user(&mut session, &pool).await?;
 
-    let updated_user = crate::db::update_user_profile(
-        &pool,
-        user.id,
-        req.username,
-        req.bio,
-        req.avatar_url,
-    )
-    .await
-    .map_err(|e| {
-        warn!("Failed to update profile for user {}: {}", user.id, e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    let updated_user =
+        crate::db::update_user_profile(&pool, user.id, req.username, req.bio, req.avatar_url)
+            .await
+            .map_err(|e| {
+                warn!("Failed to update profile for user {}: {}", user.id, e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
     info!("User {} updated profile", updated_user.username);
 
@@ -336,7 +349,7 @@ async fn list_users_handler(
 
     let filtered: Vec<UserResponse> = users
         .into_iter()
-        .filter(|u| u.id != current_user.id)          // exclude self
+        .filter(|u| u.id != current_user.id) // exclude self
         .map(|u| UserResponse {
             id: u.id,
             username: u.username,
@@ -350,7 +363,6 @@ async fn list_users_handler(
     info!("Fetched {} users (excluding self)", filtered.len());
     Ok(Json(filtered))
 }
-
 
 #[tracing::instrument(skip(_session, pool))]
 async fn debug_list_users_handler(
@@ -393,14 +405,18 @@ async fn send_message_handler(
     // Resolve sender — may be None for fully anonymous (unauthenticated) sends
     let sender_id = resolve_user(&mut session, &pool).await.ok().map(|u| u.id);
 
-    let (message_id, thread_id) = crate::db::create_message(&pool, sender_id, req.recipient_id, &req.content)
-        .await
-        .map_err(|e| {
-            warn!("Failed to create message: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let (message_id, thread_id) =
+        crate::db::create_message(&pool, sender_id, req.recipient_id, &req.content)
+            .await
+            .map_err(|e| {
+                warn!("Failed to create message: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
-    info!("Anonymous message {} sent to user {}", message_id, req.recipient_id);
+    info!(
+        "Anonymous message {} sent to user {}",
+        message_id, req.recipient_id
+    );
 
     // Push SSE notification to recipient (if online)
     let payload = serde_json::json!({
@@ -409,10 +425,15 @@ async fn send_message_handler(
         "content": req.content,
     })
     .to_string();
-    notify_user_sse(&hub, req.recipient_id, SseEvent {
-        event_type: "new_message".to_string(),
-        data: payload,
-    }).await;
+    notify_user_sse(
+        &hub,
+        req.recipient_id,
+        SseEvent {
+            event_type: "new_message".to_string(),
+            data: payload,
+        },
+    )
+    .await;
 
     Ok(StatusCode::CREATED)
 }
@@ -450,7 +471,10 @@ async fn reply_message_handler(
         // User is the sender — reply to the recipient
         original.recipient_id
     } else {
-        warn!("User {} tried to reply to a message they're not part of", user.id);
+        warn!(
+            "User {} tried to reply to a message they're not part of",
+            user.id
+        );
         return Err(StatusCode::FORBIDDEN);
     };
 
@@ -467,7 +491,10 @@ async fn reply_message_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    info!("Reply {} in thread {} sent", new_message_id, original.thread_id);
+    info!(
+        "Reply {} in thread {} sent",
+        new_message_id, original.thread_id
+    );
 
     // Notify recipient over SSE
     let payload = serde_json::json!({
@@ -476,10 +503,15 @@ async fn reply_message_handler(
         "content": req.content,
     })
     .to_string();
-    notify_user_sse(&hub, reply_recipient_id, SseEvent {
-        event_type: "new_message".to_string(),
-        data: payload,
-    }).await;
+    notify_user_sse(
+        &hub,
+        reply_recipient_id,
+        SseEvent {
+            event_type: "new_message".to_string(),
+            data: payload,
+        },
+    )
+    .await;
 
     Ok(StatusCode::CREATED)
 }
@@ -534,9 +566,9 @@ async fn get_thread_handler(
         })?;
 
     // Ensure the user is part of this thread
-    let is_participant = msgs.iter().any(|m| {
-        m.recipient_id == user.id || m.sender_id == Some(user.id)
-    });
+    let is_participant = msgs
+        .iter()
+        .any(|m| m.recipient_id == user.id || m.sender_id == Some(user.id));
     if !msgs.is_empty() && !is_participant {
         return Err(StatusCode::FORBIDDEN);
     }
@@ -635,24 +667,32 @@ async fn create_broadcast_handler(
         Some(user.id)
     };
 
-    let broadcast_id = crate::db::create_broadcast(&pool, sender_id, &req.content, req.is_anonymous)
-        .await
-        .map_err(|e| {
-            warn!("Failed to create broadcast: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let broadcast_id =
+        crate::db::create_broadcast(&pool, sender_id, &req.content, req.is_anonymous)
+            .await
+            .map_err(|e| {
+                warn!("Failed to create broadcast: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
-    info!("Broadcast {} created (anonymous: {})", broadcast_id, req.is_anonymous);
+    info!(
+        "Broadcast {} created (anonymous: {})",
+        broadcast_id, req.is_anonymous
+    );
 
     // Push SSE event to ALL connected users so their broadcasts page updates
     let payload = serde_json::json!({
         "broadcast_id": broadcast_id,
     })
     .to_string();
-    notify_all_sse(&hub, SseEvent {
-        event_type: "new_broadcast".to_string(),
-        data: payload,
-    }).await;
+    notify_all_sse(
+        &hub,
+        SseEvent {
+            event_type: "new_broadcast".to_string(),
+            data: payload,
+        },
+    )
+    .await;
 
     Ok(StatusCode::CREATED)
 }
@@ -905,10 +945,15 @@ async fn typing_indicator_handler(
     .await;
 
     if let Ok(Some(other_user_id)) = other_user_id {
-        notify_user_sse(&hub, other_user_id, SseEvent {
-            event_type: "typing".to_string(),
-            data: payload,
-        }).await;
+        notify_user_sse(
+            &hub,
+            other_user_id,
+            SseEvent {
+                event_type: "typing".to_string(),
+                data: payload,
+            },
+        )
+        .await;
     }
 
     Ok(StatusCode::OK)
@@ -1021,7 +1066,10 @@ async fn create_broadcast_comment_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    info!("User {} commented on broadcast {}", user.username, broadcast_id);
+    info!(
+        "User {} commented on broadcast {}",
+        user.username, broadcast_id
+    );
 
     // Notify all users via SSE
     let payload = serde_json::json!({
@@ -1030,10 +1078,14 @@ async fn create_broadcast_comment_handler(
     })
     .to_string();
 
-    notify_all_sse(&hub, SseEvent {
-        event_type: "new_comment".to_string(),
-        data: payload,
-    }).await;
+    notify_all_sse(
+        &hub,
+        SseEvent {
+            event_type: "new_comment".to_string(),
+            data: payload,
+        },
+    )
+    .await;
 
     Ok(StatusCode::CREATED)
 }

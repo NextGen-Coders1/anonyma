@@ -1,4 +1,4 @@
-use sqlx::{types::time::OffsetDateTime, PgPool, Result, FromRow};
+use sqlx::{types::time::OffsetDateTime, FromRow, PgPool, Result};
 use uuid::Uuid;
 
 pub async fn init_db(database_url: &str) -> Result<PgPool> {
@@ -140,24 +140,22 @@ pub async fn upsert_user(
             return Ok(updated);
         }
         // If it's already a different provider but matching provider_id, we update username if changed
-        if user.provider == provider && user.provider_id == provider_id {
-             if user.username != username {
-                let updated = sqlx::query_as::<_, User>(
-                    r#"
-                    UPDATE users
-                    SET username = $1
-                    WHERE id = $2
-                    RETURNING id, username, password_hash, provider, provider_id, bio, avatar_url, created_at
-                    "#,
-                )
-                .bind(username)
-                .bind(user.id)
-                .fetch_one(pool)
-                .await?;
-                return Ok(updated);
-            }
+        if user.provider == provider && user.provider_id == provider_id && user.username != username {
+            let updated = sqlx::query_as::<_, User>(
+                r#"
+                UPDATE users
+                SET username = $1
+                WHERE id = $2
+                RETURNING id, username, password_hash, provider, provider_id, bio, avatar_url, created_at
+                "#,
+            )
+            .bind(username)
+            .bind(user.id)
+            .fetch_one(pool)
+            .await?;
+            return Ok(updated);
         }
-        
+
         return Ok(user);
     }
 
@@ -175,15 +173,11 @@ pub async fn upsert_user(
     .bind(provider_id)
     .fetch_one(pool)
     .await?;
-    
+
     Ok(new_user)
 }
 
-pub async fn create_local_user(
-    pool: &PgPool,
-    username: &str,
-    password_hash: &str,
-) -> Result<User> {
+pub async fn create_local_user(pool: &PgPool, username: &str, password_hash: &str) -> Result<User> {
     let user = sqlx::query_as::<_, User>(
         r#"
         INSERT INTO users (id, username, password_hash, provider, created_at)
@@ -408,7 +402,6 @@ pub async fn mark_thread_as_read(pool: &PgPool, thread_id: Uuid, reader_id: Uuid
 /// Find the other participant in a thread (i.e. everyone who isn't `user_id`).
 /// Returns the UUID of the other user, or None if not found.
 #[allow(dead_code)]
-
 #[tracing::instrument(skip(pool))]
 pub async fn get_user_inbox(pool: &PgPool, recipient_id: Uuid) -> Result<Vec<Message>> {
     let messages = sqlx::query_as::<_, Message>(
@@ -543,7 +536,6 @@ pub async fn track_broadcast_view(pool: &PgPool, broadcast_id: Uuid, user_id: Uu
     Ok(())
 }
 
-
 pub async fn update_user_profile(
     pool: &PgPool,
     user_id: Uuid,
@@ -619,11 +611,7 @@ pub async fn search_messages(
 }
 
 // Message Deletion
-pub async fn delete_message(
-    pool: &PgPool,
-    message_id: Uuid,
-    user_id: Uuid,
-) -> Result<()> {
+pub async fn delete_message(pool: &PgPool, message_id: Uuid, user_id: Uuid) -> Result<()> {
     sqlx::query(
         r#"
         UPDATE messages
@@ -639,11 +627,7 @@ pub async fn delete_message(
 }
 
 // Delete entire thread
-pub async fn delete_thread(
-    pool: &PgPool,
-    thread_id: Uuid,
-    user_id: Uuid,
-) -> Result<()> {
+pub async fn delete_thread(pool: &PgPool, thread_id: Uuid, user_id: Uuid) -> Result<()> {
     sqlx::query(
         r#"
         UPDATE messages
@@ -667,7 +651,7 @@ pub async fn edit_message(
 ) -> Result<()> {
     // Get old content first
     let old_content: String = sqlx::query_scalar(
-        "SELECT content FROM messages WHERE id = $1 AND sender_id = $2 AND deleted_at IS NULL"
+        "SELECT content FROM messages WHERE id = $1 AND sender_id = $2 AND deleted_at IS NULL",
     )
     .bind(message_id)
     .bind(user_id)
@@ -705,14 +689,10 @@ pub async fn edit_message(
 }
 
 // Pin/Unpin Message
-pub async fn toggle_pin_message(
-    pool: &PgPool,
-    message_id: Uuid,
-    user_id: Uuid,
-) -> Result<bool> {
+pub async fn toggle_pin_message(pool: &PgPool, message_id: Uuid, user_id: Uuid) -> Result<bool> {
     // Check if already pinned
     let is_pinned: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM pinned_messages WHERE message_id = $1 AND user_id = $2)"
+        "SELECT EXISTS(SELECT 1 FROM pinned_messages WHERE message_id = $1 AND user_id = $2)",
     )
     .bind(message_id)
     .bind(user_id)
@@ -741,13 +721,9 @@ pub async fn toggle_pin_message(
 }
 
 // Pin/Unpin Thread
-pub async fn toggle_pin_thread(
-    pool: &PgPool,
-    thread_id: Uuid,
-    user_id: Uuid,
-) -> Result<bool> {
+pub async fn toggle_pin_thread(pool: &PgPool, thread_id: Uuid, user_id: Uuid) -> Result<bool> {
     let is_pinned: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM pinned_threads WHERE thread_id = $1 AND user_id = $2)"
+        "SELECT EXISTS(SELECT 1 FROM pinned_threads WHERE thread_id = $1 AND user_id = $2)",
     )
     .bind(thread_id)
     .bind(user_id)
@@ -774,9 +750,10 @@ pub async fn toggle_pin_thread(
 }
 
 // Get pinned threads for user
+#[allow(dead_code)]
 pub async fn get_pinned_threads(pool: &PgPool, user_id: Uuid) -> Result<Vec<Uuid>> {
     let thread_ids = sqlx::query_scalar(
-        "SELECT thread_id FROM pinned_threads WHERE user_id = $1 ORDER BY pinned_at DESC"
+        "SELECT thread_id FROM pinned_threads WHERE user_id = $1 ORDER BY pinned_at DESC",
     )
     .bind(user_id)
     .fetch_all(pool)
@@ -785,13 +762,9 @@ pub async fn get_pinned_threads(pool: &PgPool, user_id: Uuid) -> Result<Vec<Uuid
 }
 
 // User Blocking
-pub async fn block_user(
-    pool: &PgPool,
-    blocker_id: Uuid,
-    blocked_id: Uuid,
-) -> Result<()> {
+pub async fn block_user(pool: &PgPool, blocker_id: Uuid, blocked_id: Uuid) -> Result<()> {
     sqlx::query(
-        "INSERT INTO user_blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"
+        "INSERT INTO user_blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
     )
     .bind(blocker_id)
     .bind(blocked_id)
@@ -800,11 +773,7 @@ pub async fn block_user(
     Ok(())
 }
 
-pub async fn unblock_user(
-    pool: &PgPool,
-    blocker_id: Uuid,
-    blocked_id: Uuid,
-) -> Result<()> {
+pub async fn unblock_user(pool: &PgPool, blocker_id: Uuid, blocked_id: Uuid) -> Result<()> {
     sqlx::query("DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2")
         .bind(blocker_id)
         .bind(blocked_id)
@@ -814,22 +783,18 @@ pub async fn unblock_user(
 }
 
 pub async fn get_blocked_users(pool: &PgPool, user_id: Uuid) -> Result<Vec<Uuid>> {
-    let blocked_ids = sqlx::query_scalar(
-        "SELECT blocked_id FROM user_blocks WHERE blocker_id = $1"
-    )
-    .bind(user_id)
-    .fetch_all(pool)
-    .await?;
+    let blocked_ids =
+        sqlx::query_scalar("SELECT blocked_id FROM user_blocks WHERE blocker_id = $1")
+            .bind(user_id)
+            .fetch_all(pool)
+            .await?;
     Ok(blocked_ids)
 }
 
-pub async fn is_blocked(
-    pool: &PgPool,
-    blocker_id: Uuid,
-    blocked_id: Uuid,
-) -> Result<bool> {
+#[allow(dead_code)]
+pub async fn is_blocked(pool: &PgPool, blocker_id: Uuid, blocked_id: Uuid) -> Result<bool> {
     let blocked: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2)"
+        "SELECT EXISTS(SELECT 1 FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2)",
     )
     .bind(blocker_id)
     .bind(blocked_id)
@@ -839,11 +804,7 @@ pub async fn is_blocked(
 }
 
 // Typing Indicators
-pub async fn set_typing_indicator(
-    pool: &PgPool,
-    thread_id: Uuid,
-    user_id: Uuid,
-) -> Result<()> {
+pub async fn set_typing_indicator(pool: &PgPool, thread_id: Uuid, user_id: Uuid) -> Result<()> {
     sqlx::query(
         r#"
         INSERT INTO typing_indicators (thread_id, user_id, started_at)
@@ -859,11 +820,8 @@ pub async fn set_typing_indicator(
     Ok(())
 }
 
-pub async fn clear_typing_indicator(
-    pool: &PgPool,
-    thread_id: Uuid,
-    user_id: Uuid,
-) -> Result<()> {
+#[allow(dead_code)]
+pub async fn clear_typing_indicator(pool: &PgPool, thread_id: Uuid, user_id: Uuid) -> Result<()> {
     sqlx::query("DELETE FROM typing_indicators WHERE thread_id = $1 AND user_id = $2")
         .bind(thread_id)
         .bind(user_id)
@@ -872,6 +830,7 @@ pub async fn clear_typing_indicator(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub async fn get_typing_users(
     pool: &PgPool,
     thread_id: Uuid,
@@ -902,11 +861,8 @@ pub async fn cleanup_typing_indicators(pool: &PgPool) -> Result<()> {
 }
 
 // Read Receipts
-pub async fn mark_message_read(
-    pool: &PgPool,
-    message_id: Uuid,
-    reader_id: Uuid,
-) -> Result<()> {
+#[allow(dead_code)]
+pub async fn mark_message_read(pool: &PgPool, message_id: Uuid, reader_id: Uuid) -> Result<()> {
     sqlx::query(
         r#"
         UPDATE messages
@@ -1020,19 +976,18 @@ pub async fn delete_broadcast_comment(
     comment_id: Uuid,
     user_id: Uuid,
 ) -> Result<()> {
-    sqlx::query(
-        "UPDATE broadcast_comments SET deleted_at = NOW() WHERE id = $1 AND user_id = $2"
-    )
-    .bind(comment_id)
-    .bind(user_id)
-    .execute(pool)
-    .await?;
+    sqlx::query("UPDATE broadcast_comments SET deleted_at = NOW() WHERE id = $1 AND user_id = $2")
+        .bind(comment_id)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
 // User Preferences
 #[derive(Debug, FromRow)]
 pub struct UserPreferences {
+    #[allow(dead_code)]
     pub user_id: Uuid,
     pub theme: String,
     pub notification_sound: bool,
@@ -1042,12 +997,11 @@ pub struct UserPreferences {
 }
 
 pub async fn get_user_preferences(pool: &PgPool, user_id: Uuid) -> Result<Option<UserPreferences>> {
-    let prefs = sqlx::query_as::<_, UserPreferences>(
-        "SELECT * FROM user_preferences WHERE user_id = $1"
-    )
-    .bind(user_id)
-    .fetch_optional(pool)
-    .await?;
+    let prefs =
+        sqlx::query_as::<_, UserPreferences>("SELECT * FROM user_preferences WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_optional(pool)
+            .await?;
     Ok(prefs)
 }
 
