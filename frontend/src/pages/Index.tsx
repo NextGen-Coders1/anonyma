@@ -11,12 +11,13 @@ const Index = () => {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background">
       {/* Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-secondary/5" />
       <img
         src={heroBg}
         alt=""
-        className="absolute inset-0 h-full w-full object-cover opacity-40"
+        className="absolute inset-0 h-full w-full object-cover opacity-20 dark:opacity-40"
       />
       <ParticleBackground />
 
@@ -25,7 +26,7 @@ const Index = () => {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="glass-strong relative z-10 w-full max-w-md rounded-2xl p-8"
+        className="glass-strong relative z-10 w-full max-w-md rounded-2xl p-8 shadow-2xl"
       >
         {/* Header */}
         <div className="mb-8 text-center">
@@ -58,7 +59,7 @@ const Index = () => {
           <Button
             size="lg"
             variant="outline"
-            className="w-full font-mono font-bold border-muted bg-background/50 hover:bg-muted/80"
+            className="w-full font-mono font-bold border-border bg-background/50 hover:bg-accent"
             onClick={() => window.location.href = '/login'}
           >
             Authenticate with Password

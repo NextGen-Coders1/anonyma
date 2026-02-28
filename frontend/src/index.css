@@ -6,6 +6,58 @@
 
 @layer base {
   :root {
+    /* Light mode colors - much softer, low contrast, easy on eyes */
+    --background: 210 20% 88%;
+    --foreground: 222 47% 11%;
+
+    --card: 210 15% 92%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 210 15% 92%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 263 70% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 187 85% 45%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 15% 82%;
+    --muted-foreground: 220 9% 36%;
+
+    --accent: 210 15% 82%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 15% 78%;
+    --input: 210 15% 85%;
+    --ring: 263 70% 50%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 210 18% 85%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 263 70% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 15% 80%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 210 15% 75%;
+    --sidebar-ring: 263 70% 50%;
+
+    /* Custom tokens */
+    --neon-purple: 263 70% 50%;
+    --neon-cyan: 187 85% 45%;
+    --glass-bg: 210 20% 90% / 0.5;
+    --glass-border: 210 15% 70% / 0.3;
+    --glass-shadow: 263 70% 50% / 0.05;
+    --glow-purple: 0 0 8px hsl(263 70% 50% / 0.15), 0 0 20px hsl(263 70% 50% / 0.04);
+    --glow-cyan: 0 0 8px hsl(187 85% 45% / 0.15), 0 0 20px hsl(187 85% 45% / 0.04);
+  }
+
+  .dark {
+    /* Dark mode colors */
     --background: 0 0% 4%;
     --foreground: 0 0% 95%;
 
@@ -33,8 +85,6 @@
     --border: 0 0% 14%;
     --input: 0 0% 14%;
     --ring: 263 70% 66%;
-
-    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 5%;
     --sidebar-foreground: 0 0% 80%;
@@ -75,10 +125,18 @@
   }
 
   .glass-strong {
-    background: hsla(0 0% 100% / 0.08);
-    border: 1px solid hsla(0 0% 100% / 0.12);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
+  }
+
+  .dark .glass-strong {
+    background: hsla(0 0% 100% / 0.08);
+    border: 1px solid hsla(0 0% 100% / 0.12);
+  }
+
+  :root:not(.dark) .glass-strong {
+    background: hsla(210 20% 92% / 0.95);
+    border: 1px solid hsla(210 15% 78% / 0.5);
   }
 
   .glow-purple {

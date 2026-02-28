@@ -45,24 +45,36 @@ pub async fn login_handler(
         })?;
 
     let password_hash = user.password_hash.as_ref().ok_or_else(|| {
-        warn!("Login failed: user '{}' has no password (OAuth only?)", user.username);
+        warn!(
+            "Login failed: user '{}' has no password (OAuth only?)",
+            user.username
+        );
         StatusCode::UNAUTHORIZED
     })?;
 
     let parsed_hash = PasswordHash::new(password_hash).map_err(|e| {
-        warn!("Failed to parse password hash for user {}: {e}", user.username);
+        warn!(
+            "Failed to parse password hash for user {}: {e}",
+            user.username
+        );
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
     Argon2::default()
         .verify_password(req.password.as_bytes(), &parsed_hash)
         .map_err(|e| {
-            warn!("Password verification failed for user {}: {e}", user.username);
+            warn!(
+                "Password verification failed for user {}: {e}",
+                user.username
+            );
             StatusCode::UNAUTHORIZED
         })?;
 
     // Password verified — create a server-side session
-    info!("Password login successful for user: {}, user_id: {}", user.username, user.id);
+    info!(
+        "Password login successful for user: {}, user_id: {}",
+        user.username, user.id
+    );
 
     let identity = Identity {
         provider_id: "local".to_string(),
@@ -72,10 +84,14 @@ pub async fn login_handler(
         attributes: HashMap::new(),
     };
 
-    let session = state.authkestra.create_session(identity).await.map_err(|e| {
-        warn!("Failed to create session: {e}");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    let session = state
+        .authkestra
+        .create_session(identity)
+        .await
+        .map_err(|e| {
+            warn!("Failed to create session: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     let cookie = create_axum_cookie(&state.authkestra.session_config, session.id);
     cookies.add(cookie);
@@ -125,7 +141,10 @@ pub async fn register_handler(
         .is_some();
 
     if exists {
-        warn!("Registration failed: user '{}' already exists", req.username);
+        warn!(
+            "Registration failed: user '{}' already exists",
+            req.username
+        );
         return Err(StatusCode::CONFLICT);
     }
 
@@ -157,15 +176,22 @@ pub async fn register_handler(
         attributes: HashMap::new(),
     };
 
-    let session = state.authkestra.create_session(identity).await.map_err(|e| {
-        warn!("Failed to create session after registration: {e}");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    let session = state
+        .authkestra
+        .create_session(identity)
+        .await
+        .map_err(|e| {
+            warn!("Failed to create session after registration: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     let cookie = create_axum_cookie(&state.authkestra.session_config, session.id);
     cookies.add(cookie);
 
-    info!("Registration successful for user: {}, session created", user.username);
+    info!(
+        "Registration successful for user: {}, session created",
+        user.username
+    );
 
     Ok((
         StatusCode::CREATED,
@@ -177,14 +203,18 @@ pub async fn register_handler(
 }
 
 #[tracing::instrument(skip(cookies, state))]
-pub async fn logout_handler(
-    cookies: Cookies,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn logout_handler(cookies: Cookies, State(state): State<AppState>) -> impl IntoResponse {
     let session_store: Arc<dyn SessionStore> = state.authkestra.session_store.get_store();
     let session_config = state.authkestra.session_config.clone();
 
-    match logout(cookies, session_store, session_config, "http://localhost:8080/login").await {
+    match logout(
+        cookies,
+        session_store,
+        session_config,
+        "http://localhost:8080/login",
+    )
+    .await
+    {
         Ok(response) => response.into_response(),
         Err((status, msg)) => {
             warn!("Logout error: {msg}");

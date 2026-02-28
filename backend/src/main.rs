@@ -1,17 +1,14 @@
-use axum::{
-    response::Redirect,
-    routing::get,
-    Router,
-};
-use tower_http::trace::TraceLayer;
+use axum::{response::Redirect, routing::get, Router};
+use config::Config;
 use dotenvy::dotenv;
 use std::sync::Arc;
+use std::time::Duration;
 use tower_cookies::CookieManagerLayer;
-use config::Config;
+use tower_http::trace::TraceLayer;
 
 mod auth;
-mod db;
 mod config;
+mod db;
 
 use db::init_db;
 
@@ -45,7 +42,8 @@ async fn main() {
 
     // Setup Authkestra
 
-    let github_provider = GithubProvider::new(config.client_id, config.client_secret, config.redirect_uri);
+    let github_provider =
+        GithubProvider::new(config.client_id, config.client_secret, config.redirect_uri);
     let github_flow = OAuth2Flow::new(github_provider)
         .with_scopes(vec!["read:user".to_string(), "user:email".to_string()]);
     let session_store = Arc::new(MemoryStore::default());
@@ -64,13 +62,16 @@ async fn main() {
     let state = AppState {
         authkestra: authkestra.clone(),
         db_pool: Arc::new(pool),
+        notification_hub: std::sync::Arc::new(tokio::sync::Mutex::new(
+            std::collections::HashMap::new(),
+        )),
     };
 
     // CORS configuration
     let cors = tower_http::cors::CorsLayer::new()
-        .allow_origin(vec![
-            "http://localhost:8080".parse::<axum::http::HeaderValue>().unwrap(),
-        ])
+        .allow_origin(vec!["http://localhost:8080"
+            .parse::<axum::http::HeaderValue>()
+            .unwrap()])
         .allow_methods(vec![
             axum::http::Method::GET,
             axum::http::Method::POST,
@@ -86,11 +87,24 @@ async fn main() {
         ])
         .allow_credentials(true);
 
+    // Spawn a task to clean up typing indicators periodically
+    let pool_clone = state.db_pool.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            let _ = crate::db::cleanup_typing_indicators(&pool_clone).await;
+        }
+    });
+
     // Build app with routes and merge Authkestra router
     let app = Router::new()
         .route("/", get(root_redirect_handler))
         .route("/auth/login", axum::routing::post(auth::login_handler))
-        .route("/auth/register", axum::routing::post(auth::register_handler))
+        .route(
+            "/auth/register",
+            axum::routing::post(auth::register_handler),
+        )
         .route("/logout", get(auth::logout_handler))
         .nest("/api", api::api_router())
         .merge(authkestra.axum_router())

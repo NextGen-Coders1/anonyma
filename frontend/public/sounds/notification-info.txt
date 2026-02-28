@@ -1,0 +1,18 @@
+# Notification Sound
+
+For the notification sound, you can:
+
+1. Download a free notification sound from:
+   - https://notificationsounds.com/
+   - https://mixkit.co/free-sound-effects/notification/
+   - https://freesound.org/
+
+2. Or use this command to download a simple notification sound:
+   curl -o frontend/public/sounds/notification.mp3 "https://notificationsounds.com/storage/sounds/file-sounds-1150-pristine.mp3"
+
+3. Or record your own using Audacity or similar tool
+
+The sound file should be named: notification.mp3
+And placed in: frontend/public/sounds/
+
+For now, the app will work without the sound file (it will just log an error to console).

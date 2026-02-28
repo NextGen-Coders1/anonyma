@@ -1,73 +1,100 @@
-# Welcome to your Lovable project
+# Anonyma Frontend
 
-## Project info
+Modern React-based user interface for the Anonyma anonymous messaging platform.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Technology Stack
 
-## How can I edit this code?
+- Framework: Vite with React 18
+- Language: TypeScript for type safety
+- Styling: Tailwind CSS utility framework
+- UI Components: shadcn/ui component library
+- Icons: Lucide React icon set
+- State Management: TanStack Query v5
+- Animations: Framer Motion
+- Emoji Picker: emoji-picker-react
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
+### Installation
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Install project dependencies:
 
-Changes made via Lovable will be committed automatically to this repo.
+```bash
+npm install
+```
 
-**Use your preferred IDE**
+### Configuration
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Create environment configuration file (optional):
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+```bash
+cp .env.example .env
+```
 
-Follow these steps:
+The default configuration connects to http://localhost:3000 for the backend API.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Development
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Start the development server:
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The application will be available at http://localhost:8080
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Production Build
 
-**Use GitHub Codespaces**
+Create an optimized production build:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```bash
+npm run build
+```
 
-## What technologies are used for this project?
+Preview the production build:
 
-This project is built with:
+```bash
+npm run preview
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Project Structure
 
-## How can I deploy this project?
+```
+frontend/
+├── src/
+│   ├── components/          # React components
+│   ├── hooks/              # Custom React hooks
+│   ├── pages/              # Page components
+│   ├── providers/          # Context providers
+│   ├── lib/                # Utilities and API client
+│   ├── App.tsx
+│   └── main.tsx
+├── public/                 # Static assets
+└── package.json
+```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Development Tools
 
-## Can I connect a custom domain to my Lovable project?
+### Linting
 
-Yes, you can!
+Run ESLint to check code quality:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```bash
+npm run lint
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Testing
+
+Run the test suite with Vitest:
+
+```bash
+npm run test
+```
+
+## API Integration
+
+The frontend communicates with the backend through a typed API client located in src/lib/api.ts. This provides type-safe request and response handling for all backend endpoints.
+
+## License
+
+This project is licensed under the MIT License.
