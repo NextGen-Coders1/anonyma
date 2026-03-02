@@ -70,7 +70,9 @@ async fn main() {
 
     // CORS configuration
     let cors = tower_http::cors::CorsLayer::new()
-        .allow_origin(vec![format!("{}", config.frontend_url)
+        .allow_origin(vec![config
+            .frontend_url
+            .clone()
             .parse::<axum::http::HeaderValue>()
             .unwrap()])
         .allow_methods(vec![
