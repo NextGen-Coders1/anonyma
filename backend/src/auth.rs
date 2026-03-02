@@ -208,14 +208,7 @@ pub async fn logout_handler(cookies: Cookies, State(state): State<AppState>) -> 
     let session_config = state.authkestra.session_config.clone();
     let login_url = format!("{}/login", state.frontend_url);
 
-    match logout(
-        cookies,
-        session_store,
-        session_config,
-        &login_url,
-    )
-    .await
-    {
+    match logout(cookies, session_store, session_config, &login_url).await {
         Ok(response) => response.into_response(),
         Err((status, msg)) => {
             warn!("Logout error: {msg}");

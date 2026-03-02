@@ -70,8 +70,7 @@ async fn main() {
 
     // CORS configuration
     let cors = tower_http::cors::CorsLayer::new()
-        .allow_origin(vec![format!("{}"
-            , config.frontend_url)
+        .allow_origin(vec![format!("{}", config.frontend_url)
             .parse::<axum::http::HeaderValue>()
             .unwrap()])
         .allow_methods(vec![
@@ -101,12 +100,13 @@ async fn main() {
 
     // Build app with routes and merge Authkestra router
     let app = Router::new()
-        .route("/", get({
-            let frontend_url = config.frontend_url.clone();
-            move || async move {
-                Redirect::to(&format!("{}/dashboard", frontend_url))
-            }
-        }))
+        .route(
+            "/",
+            get({
+                let frontend_url = config.frontend_url.clone();
+                move || async move { Redirect::to(&format!("{}/dashboard", frontend_url)) }
+            }),
+        )
         .route("/auth/login", axum::routing::post(auth::login_handler))
         .route(
             "/auth/register",
@@ -121,8 +121,8 @@ async fn main() {
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(&config.bind_address)
-    .await
-    .expect("failed to bind TCP listener");
+        .await
+        .expect("failed to bind TCP listener");
     tracing::info!("Server starting on {}", config.base_url);
 
     axum::serve(listener, app).await.unwrap();
