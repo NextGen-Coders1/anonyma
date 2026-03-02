@@ -36,16 +36,14 @@ Configure the following variables:
 DATABASE_URL=postgresql://user:password@localhost/anonyma
 
 # Server configuration
-HOST=localhost
+HOST=0.0.0.0
 PORT=3000
+APP_SCHEME=http
+FRONTEND_URL=http://localhost:8080
 
 # GitHub OAuth
 GITHUB_CLIENT_ID=your_github_client_id
 GITHUB_CLIENT_SECRET=your_github_client_secret
-GITHUB_REDIRECT_URI=http://localhost:3000/auth/github/callback
-
-# Session security (not used in current implementation)
-SESSION_SECRET=your_random_secret_key_here
 ```
 
 ### Database Setup
@@ -356,9 +354,10 @@ See `Cargo.toml` for the complete dependency list.
 DATABASE_URL=postgresql://user:pass@host/db
 HOST=0.0.0.0
 PORT=3000
+APP_SCHEME=https
+FRONTEND_URL=https://yourdomain.com
 GITHUB_CLIENT_ID=<production-client-id>
 GITHUB_CLIENT_SECRET=<production-secret>
-GITHUB_REDIRECT_URI=https://yourdomain.com/auth/github/callback
 ```
 
 ### Docker Deployment

@@ -65,11 +65,13 @@ async fn main() {
         notification_hub: std::sync::Arc::new(tokio::sync::Mutex::new(
             std::collections::HashMap::new(),
         )),
+        frontend_url: config.frontend_url.clone(),
     };
 
     // CORS configuration
     let cors = tower_http::cors::CorsLayer::new()
-        .allow_origin(vec!["http://localhost:8080"
+        .allow_origin(vec![format!("{}"
+            , config.frontend_url)
             .parse::<axum::http::HeaderValue>()
             .unwrap()])
         .allow_methods(vec![
@@ -99,7 +101,12 @@ async fn main() {
 
     // Build app with routes and merge Authkestra router
     let app = Router::new()
-        .route("/", get(root_redirect_handler))
+        .route("/", get({
+            let frontend_url = config.frontend_url.clone();
+            move || async move {
+                Redirect::to(&format!("{}/dashboard", frontend_url))
+            }
+        }))
         .route("/auth/login", axum::routing::post(auth::login_handler))
         .route(
             "/auth/register",
@@ -113,13 +120,10 @@ async fn main() {
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
-    let addr = format!("{}:{}", config.host, config.port);
+    let listener = tokio::net::TcpListener::bind(&config.bind_address)
+    .await
+    .expect("failed to bind TCP listener");
+    tracing::info!("Server starting on {}", config.base_url);
 
-    tracing::info!("Server starting on {}", addr);
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
-}
-
-async fn root_redirect_handler() -> Redirect {
-    Redirect::to("http://localhost:8080/dashboard")
 }

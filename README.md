@@ -87,7 +87,7 @@ createdb anonyma
 ```bash
 cd backend
 cp .env.example .env
-# Configure DATABASE_URL and OAuth credentials in .env
+# Configure DATABASE_URL, HOST, PORT, APP_SCHEME, FRONTEND_URL, and OAuth credentials in .env
 cargo build
 cargo run
 ```
@@ -98,6 +98,8 @@ The backend server will start on http://localhost:3000
 
 ```bash
 cd frontend
+cp .env.example .env
+# Configure VITE_API_URL and VITE_FRONTEND_URL in .env
 npm install
 npm run dev
 ```

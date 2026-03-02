@@ -58,6 +58,7 @@ export interface Broadcast {
 
 // API Client
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+export const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || 'http://localhost:8080';
 
 async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${endpoint}`, {
@@ -104,7 +105,7 @@ export const auth = {
     method: 'POST',
     body: JSON.stringify({ username, password }),
   }),
-  loginUrl: () => `${API_URL}/auth/github?success_url=${encodeURIComponent('http://localhost:8080/dashboard')}`,
+  loginUrl: () => `${API_URL}/auth/github?success_url=${encodeURIComponent(`${FRONTEND_URL}/dashboard`)}`,
   logoutUrl: () => `${API_URL}/logout`,
 };
 
