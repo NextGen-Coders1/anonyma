@@ -31,6 +31,8 @@ pub struct AppState {
     pub db_pool: Arc<PgPool>,
     /// SSE notification hub for real-time push
     pub notification_hub: NotificationHub,
+    /// Frontend URL for redirects
+    pub frontend_url: String,
 }
 
 // Implement FromRef for Authkestra (required for axum_router and AuthSession)
