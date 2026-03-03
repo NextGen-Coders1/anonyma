@@ -25,6 +25,7 @@ where
     AuthSession: FromRequestParts<S>,
 {
     Router::new()
+        .route("/health", get(health_handler))
         .route("/me", get(me_handler))
         .route("/me", post(update_profile_handler))
         .route("/me", axum::routing::delete(delete_account_handler))
@@ -99,6 +100,34 @@ struct DebugUserResponse {
     has_password: bool,
     #[serde(with = "time::serde::rfc3339")]
     created_at: OffsetDateTime,
+}
+
+// Health check endpoint
+#[derive(Serialize)]
+struct HealthResponse {
+    status: String,
+    database: String,
+}
+
+async fn health_handler(
+    State(pool): State<Arc<PgPool>>,
+) -> Result<Json<HealthResponse>, StatusCode> {
+    // Check database connection
+    let db_status = match sqlx::query("SELECT 1").fetch_one(pool.as_ref()).await {
+        Ok(_) => "healthy",
+        Err(_) => "unhealthy",
+    };
+
+    let overall_status = if db_status == "healthy" {
+        "ok"
+    } else {
+        "degraded"
+    };
+
+    Ok(Json(HealthResponse {
+        status: overall_status.to_string(),
+        database: db_status.to_string(),
+    }))
 }
 
 #[derive(Serialize)]

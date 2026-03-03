@@ -19,8 +19,8 @@ impl Config {
         let host = env::var("HOST").unwrap_or("0.0.0.0".to_string());
         let port = env::var("PORT").expect("PORT must be set");
         let scheme = std::env::var("APP_SCHEME").unwrap_or_else(|_| "http".to_string());
-        let base_url = format!("{}://{}:{}", scheme, host, port);
-        let bind_address = format!("{}:{}", host, port);
+        let base_url = format!("{scheme}://{host}:{port}");
+        let bind_address = format!("{host}:{port}");
         let redirect_uri = format!("{base_url}/auth/github/callback");
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
         let frontend_url = env::var("FRONTEND_URL").expect("FRONTEND_URL must be set");
