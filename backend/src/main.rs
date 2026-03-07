@@ -106,7 +106,7 @@ async fn main() {
             "/",
             get({
                 let frontend_url = config.frontend_url.clone();
-                move || async move { Redirect::to(&format!("{}/dashboard", frontend_url)) }
+                move || async move { Redirect::to(&format!("{frontend_url}/dashboard")) }
             }),
         )
         .route("/auth/login", axum::routing::post(auth::login_handler))
