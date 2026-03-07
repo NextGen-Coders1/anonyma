@@ -17,6 +17,14 @@ use uuid::Uuid;
 use crate::state::{NotificationHub, SseEvent};
 use authkestra::axum::AuthSession;
 
+pub fn public_router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    Arc<PgPool>: FromRef<S>,
+{
+    Router::new().route("/health", get(health_handler))
+}
+
 pub fn api_router<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
@@ -25,7 +33,6 @@ where
     AuthSession: FromRequestParts<S>,
 {
     Router::new()
-        .route("/health", get(health_handler))
         .route("/me", get(me_handler))
         .route("/me", post(update_profile_handler))
         .route("/me", axum::routing::delete(delete_account_handler))

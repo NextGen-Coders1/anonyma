@@ -115,6 +115,7 @@ async fn main() {
             axum::routing::post(auth::register_handler),
         )
         .route("/logout", get(auth::logout_handler))
+        .merge(api::public_router())
         .nest("/api", api::api_router())
         .merge(authkestra.axum_router())
         .layer(CookieManagerLayer::new())
